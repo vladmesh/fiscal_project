@@ -1,0 +1,20 @@
+class Settings:
+    def __init__(self, record):  # инициализируем из записи
+        if record:
+            self.server_name = record['servername']
+            self.fink_period = record['finkperiod']
+            self.queue_length = record['fiscalqueuelength']
+            self.need_mail = record['needmail']
+            self.mail_login = record['maillogin']
+            self.mail_password = record['mailpassword']
+            self.fiscal_last_activity = record['fiscallastactivity']
+            self.fiscal_update_timer = record['fiscalupdatetimer']
+            self.fink_last_activity = record['finklastactivity']
+            self.queue_mode = record['queuemode']
+            self.smpt = record['smpt']
+            self.timezone = record['timezone']
+            self.ofd_login = record['ofd_login']
+            self.ofd_password = record['ofd_password']
+            #self.fink_query = record['fink_query']
+            self.revise_date_from = record['revise_date_from']
+            self.revise_date_to = record['revise_date_to']

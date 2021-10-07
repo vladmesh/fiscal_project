@@ -1,5 +1,5 @@
-from CheckSum import CheckSum
-from Enums import ErrorCode
+from fiscal_service.CheckSum import CheckSum
+from fiscal_service.Enums import ErrorCode
 
 
 class ResponseParser:

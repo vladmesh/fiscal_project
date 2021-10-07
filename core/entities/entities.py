@@ -1,9 +1,28 @@
-
+class Cashbox:
+    def __init__(self,
+                 ip=None,
+                 company_id=None,
+                 port=None,
+                 fn_number=None,
+                 location_id=None,
+                 registry_number=None,
+                 factory_number=None,
+                 ofd_inn=None,
+                 auto_device_number=None
+                 ):
+        self.id = factory_number
+        self.ip = ip
+        self.company_id = company_id
+        self.port = port
+        self.fn_number = fn_number
+        self.location_id = location_id
+        self.registry_number = registry_number
+        self.factory_number = factory_number
+        self.ofd_inn = ofd_inn
+        self.auto_device_number = auto_device_number
 
 
 class Company:
-    redis_key = 'companies'
-
     def __init__(self, id=None,
                  inn=None, kpp=None,
                  name=None,
@@ -39,3 +58,22 @@ class Company:
         self.kpp = record['companykpp']
         self.division = record['divisionid']
         self.tax = record['tax']
+
+
+class InstallPlace:
+    redis_key = 'install_places'
+
+    def __init__(self, id, address):
+        self.id = id
+        self.address = address
+
+
+class Ofd:
+    def __init__(self, inn=None, ip=None, port=None, domain=None, name=None, email=None):
+        self.id = inn
+        self.inn = inn
+        self.ip = ip
+        self.port = port
+        self.domain = domain
+        self.name = name
+        self.email = email

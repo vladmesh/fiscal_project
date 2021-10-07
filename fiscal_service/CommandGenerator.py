@@ -1,4 +1,4 @@
-from CheckSum import CheckSum
+from fiscal_service.CheckSum import CheckSum
 
 
 class CommandGenerator:

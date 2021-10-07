@@ -1,10 +1,11 @@
-from core.entities.Cashbox import Cashbox
-from core.entities.Company import Company
-from core.entities.InstallPlace import InstallPlace
-from core.entities.Ofd import Ofd
+from core.entities.entities import Cashbox
+from core.entities.entity_schemas import CashboxSchema, CompanySchema, OfdSchema, InstallPlaceSchema
 from core.redis_api.RedisApi import RedisApi
-from schemas.answers import CashboxDataAnswerSchema
-from schemas.requests import CloseFNSchema, CashboxRegisterSchema
+from fiscal_face.aiohttp_client import FiscalSender
+from fiscal_face.ax.schemas.requests import CashboxRegisterSchema, CloseFNSchema
+import aiohttp.web
+
+from fiscal_service.schemas.responds import CashboxDataAnswerSchema
 
 
 async def reg_cashbox(request):
@@ -12,12 +13,13 @@ async def reg_cashbox(request):
     schema = CashboxRegisterSchema()
     dict_request = schema.loads(data)
     redis_api = RedisApi()
-    cashbox = await redis_api.get_entity(dict_request['cashbox_id'], Cashbox)
+    cashbox: Cashbox = await redis_api.get_entity(dict_request['cashbox_id'], CashboxSchema())
     del dict_request['cashbox_id']
-    company = await redis_api.get_entity(cashbox.company_id, Company)
-    ofd = await redis_api.get_entity(cashbox.ofd_inn, Ofd)
-    install_place = await redis_api.get_entity(cashbox.ofd_inn, InstallPlace)
-    sender.register_cashbox(**dict_request, company=company, ofd=ofd, install_place=install_place)
+    company = await redis_api.get_entity(cashbox.company_id, CompanySchema())
+    ofd = await redis_api.get_entity(cashbox.ofd_inn, OfdSchema())
+    install_place = await redis_api.get_entity(cashbox.location_id, InstallPlaceSchema())
+    fiscal_sender = FiscalSender()
+    _ = await fiscal_sender.register_cashbox(ofd=ofd, cashbox=cashbox, install_place=install_place, company=company)
 
 
 async def close_fn(request):
@@ -25,21 +27,17 @@ async def close_fn(request):
     schema = CloseFNSchema()
     dict_request = schema.loads(data)
     redis_api = RedisApi()
-    cashbox = await redis_api.get_entity(dict_request['cashbox_id'], Cashbox)
-    sender = CashboxSender(cashbox)
+    cashbox = await redis_api.get_entity(dict_request['cashbox_id'], CashboxSchema())
     del dict_request['cashbox_id']
-    sender.close_fn(**dict_request)
+    # sender.close_fn(**dict_request)
 
 
 async def get_cashbox_data(request):
     params = request.rel_url.query
     redis_api = RedisApi()
     if 'id' in params:
-        cashbox = await redis_api.get_entity(params['id'], Cashbox)
-        sender = CashboxSender(cashbox)
-        fn_status = sender.get_storage_status()
-        terminal_status = sender.get_terminal_status()
-        reg_status = sender.get_reg_status()
-        cashbox_answer = CashboxDataAnswer(terminal_status, fn_status, reg_status)
+        cashbox = await redis_api.get_entity(params['id'], CashboxSchema())
+        fiscal_sender = FiscalSender()
+        cashbox_data = await fiscal_sender.get_cashbox_data(cashbox)
         answer_schema = CashboxDataAnswerSchema()
-        return aiohttp.web.Response(text=answer_schema.dumps(cashbox_answer))
+        return aiohttp.web.Response(text=answer_schema.dumps(cashbox_data))

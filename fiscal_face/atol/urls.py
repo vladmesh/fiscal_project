@@ -1,7 +1,6 @@
 import aiohttp.web
-from views import get_token
+from fiscal_face.atol.views import get_token
 
-urls = [aiohttp.web.get('/getToken', get_token),
-        aiohttp.web.post('/getToken', get_token),
-        aiohttp.web.get('/getToken/', get_token),
-        aiohttp.web.post('/getToken/', get_token)]
+urls = [aiohttp.web.get('/possystem/v4/getToken', get_token),
+        aiohttp.web.post('/possystem/v4/getToken', get_token),
+        ]

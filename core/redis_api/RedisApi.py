@@ -2,15 +2,8 @@ import asyncio
 
 import aioredis
 
-from core.WebaxHelper import WebaxHelper
-from core.entities.Company import Company
-from core.entities.InstallPlace import InstallPlace
-from core.entities.Ofd import Ofd
-from schemas.CashboxSchema import CashboxSchema, CashboxListSchema
-from schemas.CompanySchema import CompanySchema
-from schemas.InstallPlaceSchema import InstallPlaceSchema
-from schemas.OfdSchema import OfdSchema
-from schemas.UpdateDictionariesSchema import UpdateDictionariesSchema
+from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema
+from core.webax_api.WebaxHelper import WebaxHelper
 
 
 class RedisApi:
@@ -35,22 +28,13 @@ class RedisApi:
             await self.redis.hset(key, record.id, record_json)
 
     async def update_data(self):
-        answer_json = await self.webax.get_dictionaries()
-        answer_json = answer_json['ActionData']
-        request_schema = UpdateDictionariesSchema()
-        request_data = request_schema.loads(answer_json)
-        await self.update_data_records(request_data['companies'], Company.redis_key, CompanySchema())
-        await self.update_data_records(request_data['ofds'], Ofd.redis_key, OfdSchema())
-        await self.update_data_records(request_data['install_places'], InstallPlace.redis_key,
-                                       InstallPlaceSchema())
+        ax_dicts = await self.webax.get_dictionaries()
+        await self.update_data_records(ax_dicts[CompanySchema.key], CompanySchema.key, CompanySchema())
+        await self.update_data_records(ax_dicts[OfdSchema.key], OfdSchema.key, OfdSchema())
+        await self.update_data_records(ax_dicts[InstallPlaceSchema.key], InstallPlaceSchema.key, InstallPlaceSchema())
+        await self.update_data_records(ax_dicts[CashboxSchema.key], CashboxSchema.key, CashboxSchema())
 
-        answer_json = await self.webax.get_cashboxes()
-        answer_json = answer_json['ActionData']
-        cashboxes = CashboxListSchema().loads(answer_json)
-        await self.update_data_records(cashboxes['cashboxes'], 'cashboxes', CashboxSchema())
-        print("ДАННЫЕ ОБНОВЛЕНЫ")
-
-    async def get_entity(self, entity_id, cls):
-        entity_json = await self.redis.hget(cls.redis_key, entity_id)
-        answer = cls.marshmallow_schema.loads(entity_json)
+    async def get_entity(self, entity_id, schema: EntitySchema):
+        entity_json = await self.redis.hget(schema.key, entity_id)
+        answer = schema.loads(entity_json)
         return answer

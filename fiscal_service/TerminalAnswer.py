@@ -5,10 +5,13 @@
 import struct
 from datetime import datetime
 
-from Enums import *
+
 
 
 # noinspection PyBroadException
+from fiscal_service.Enums import BinaryTypes, TerminalFAPrinterStatus
+
+
 class TerminalAnswer:
 	def getNext(self, fmt: BinaryTypes = BinaryTypes.BYTE, size=0):
 		if size == 0:

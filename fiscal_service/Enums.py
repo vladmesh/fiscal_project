@@ -52,6 +52,7 @@ class ErrorCode(enum.Enum):
 	NotSentDocuments = 0xE0
 	WrongRegistrationData = 0xF3
 	Timeout = 0xFE
+	FnIsNotActive = 0xF4
 	UnknownError = 0xFF
 
 

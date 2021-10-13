@@ -1,3 +1,9 @@
+import datetime
+from dataclasses import dataclass
+
+from core.entities.Enums import PaymentType, Tax, Vat, DocumentType
+
+
 class Cashbox:
     def __init__(self,
                  ip=None,
@@ -34,6 +40,7 @@ class Company:
                  tax=None,
                  provider_name=None,
                  provider_phone=None,
+                 provider_inn=None,
                  additional_field_meaning=None,
                  additional_field_value=None
                  ):
@@ -49,6 +56,7 @@ class Company:
         self.tax = tax
         self.provider_name = provider_name
         self.provider_phone = provider_phone
+        self.provider_inn = provider_inn
         self.additional_field_meaning = additional_field_meaning
         self.additional_field_value = additional_field_value
 
@@ -77,3 +85,27 @@ class Ofd:
         self.domain = domain
         self.name = name
         self.email = email
+
+
+@dataclass
+class Ticket:
+    id: int
+    ticket_series: str
+    ticket_number: str
+    price: int
+    payment_type: PaymentType
+    client_email: str
+    company_id: str
+    tax: Tax
+    vat: Vat
+
+
+@dataclass
+class Document:
+    id: int
+    fiscal_storage_number: int
+    fiscal_number: int
+    fiscal_sign: int
+    fiscal_date: datetime.datetime
+    ticket_id: int
+    document_type: DocumentType

@@ -4,7 +4,7 @@ from typing import Optional
 
 from core.entities.entities import Cashbox, InstallPlace, Company, Ofd
 from fiscal_service.CommandGenerator import generate_command, generate_parameter_str, generate_parameter_int
-from fiscal_service.Enums import ErrorCode, Commands
+from fiscal_service.Enums import ErrorCode, Commands, get_enum_code_elem_by_code
 from fiscal_service.ResponseParser import parse
 from fiscal_service.TerminalAnswer import FiscalStorageStatus, TerminalStatus, FiscalDocument, RegStatus
 
@@ -25,7 +25,7 @@ class CashboxSender:
         sock.shutdown(socket.SHUT_RDWR)
         sock.close()
         if answer[1] == 1:
-            return ErrorCode(answer[2])
+            return get_enum_code_elem_by_code(answer[2])
         return answer
 
     def register_cashbox(self,
@@ -42,24 +42,29 @@ class CashboxSender:
                          register_type: int,
                          cashbox_registry_number: str,
                          reason: Optional[int],
-                         cashbox_auto_device_number: Optional[str]):
+                         cashbox_auto_device_number: Optional[str]) -> ErrorCode:
         command = generate_command(Commands.BEGIN_REGISTRATION,
-                                   register_type.to_bytes(4, 'little'))
+                                   register_type.to_bytes(1, 'little'))
         answer = self.send(command)
-
+        if type(answer) == ErrorCode:
+            return answer
         data = b''
         data += generate_parameter_str(1048, company_name)
+        print(data.hex())
         data += generate_parameter_str(1009, install_place_address)
         data += generate_parameter_str(1187, company_payment_place)
         data += generate_parameter_str(1021, company_authorized_person_name)
         # data += generate_parameter_str(1203, inn)
+        ofd_inn = ofd_inn.strip()
+        if len(ofd_inn) == 10:
+            ofd_inn += '  '
         data += generate_parameter_str(1017, ofd_inn)
         data += generate_parameter_str(1046, ofd_name)
         data += generate_parameter_str(1117, ofd_email)
         if cashbox_auto_device_number:
             data += generate_parameter_str(1036, cashbox_auto_device_number)
         payment_agent = 0
-        if company_agent_agent:
+        if company_agent_agent and company_agent_agent != '0':
             payment_agent = 64
         data += generate_parameter_int(1057, payment_agent, 1)
         mode = 8  # по умолчанию пока везде ставим "применение в сфере услуг"
@@ -67,8 +72,15 @@ class CashboxSender:
         command = generate_command(Commands.SEND_REGISTRATION_DATA, data)
         print(command.hex())
         answer = self.send(command)
-
+        if type(answer) == ErrorCode:
+            return answer
         data = b''
+        company_inn = company_inn.strip()
+        cashbox_registry_number = cashbox_registry_number.strip()
+        if len(company_inn) == 10:
+            company_inn += '  '
+        while len(cashbox_registry_number) < 20:
+            cashbox_registry_number += ' '
         data += bytearray(company_inn, 'cp866')
         data += bytearray(cashbox_registry_number, 'cp866')
         data += company_tax.to_bytes(1, 'little')
@@ -76,8 +88,12 @@ class CashboxSender:
             data += reason.to_bytes(1, 'little')
 
         command = generate_command(Commands.MAKE_REGISTRATION_REPORT, data)
+        print(command.hex())
         answer = self.send(command)
-        return answer
+        if type(answer) == ErrorCode:
+            return answer
+        else:
+            return ErrorCode.OK
 
     def close_fn(self, authorized_person_name: str, inn: str):
         command = generate_command(Commands.BEGIN_CLOSE_FN)

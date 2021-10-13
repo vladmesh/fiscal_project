@@ -53,3 +53,8 @@ class CashboxDataAnswerSchema(Schema):
     @post_load
     def make_model(self, data, **kwargs):
         return GetCashboxDataAnswer(**data)
+
+
+class TerminalErrorCodeSchema(Schema):
+    code = fields.Integer()
+    description = fields.String()

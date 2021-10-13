@@ -64,6 +64,7 @@ class CompanySchema(EntitySchema):
     tax = fields.Integer(validate=validate.Range(min=0, max=2))
     provider_name = fields.String()
     provider_phone = fields.String()
+    provider_inn = fields.String()
     additional_field_meaning = fields.String()
     additional_field_value = fields.String()
 
@@ -79,3 +80,11 @@ class CashboxSchema(EntitySchema):
     factory_number = IntOrNone()
     company_id = fields.String()
     ofd_inn = fields.String(validate=validate.Length(10))
+
+
+class CashboxListSchema(Schema):
+    cashboxes = fields.List(fields.Nested(CashboxSchema))
+
+
+class CompanyListSchema(Schema):
+    companies = fields.Dict(fields.String, fields.Nested(CompanySchema))

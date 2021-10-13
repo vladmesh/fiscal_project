@@ -2,6 +2,7 @@ from typing import Any
 
 from aiomisc.service.periodic import PeriodicService
 
+from core.asyncdb.PostgresHelper import PostgresAsyncHelper
 from core.redis_api.RedisApi import RedisApi
 
 
@@ -12,3 +13,4 @@ class FiscalPeriodic(PeriodicService):
 
     async def callback(self):
         print('periodic_fiscal')
+        postgres_helper = PostgresAsyncHelper()

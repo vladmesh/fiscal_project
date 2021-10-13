@@ -5,7 +5,7 @@ from fiscal_face.aiohttp_client import FiscalSender
 from fiscal_face.ax.schemas.requests import CashboxRegisterSchema, CloseFNSchema
 import aiohttp.web
 
-from fiscal_service.schemas.responds import CashboxDataAnswerSchema
+from fiscal_service.schemas.responds import CashboxDataAnswerSchema, TerminalErrorCodeSchema
 
 
 async def reg_cashbox(request):
@@ -19,7 +19,10 @@ async def reg_cashbox(request):
     ofd = await redis_api.get_entity(cashbox.ofd_inn, OfdSchema())
     install_place = await redis_api.get_entity(cashbox.location_id, InstallPlaceSchema())
     fiscal_sender = FiscalSender()
-    _ = await fiscal_sender.register_cashbox(ofd=ofd, cashbox=cashbox, install_place=install_place, company=company)
+    json_dict = await fiscal_sender.register_cashbox(ofd=ofd, cashbox=cashbox, install_place=install_place,
+                                                     company=company)
+    answer_schema = TerminalErrorCodeSchema()
+    return aiohttp.web.Response(text=answer_schema.dumps(json_dict), content_type='application/json')
 
 
 async def close_fn(request):

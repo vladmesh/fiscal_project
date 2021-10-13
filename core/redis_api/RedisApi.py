@@ -2,7 +2,9 @@ import asyncio
 
 import aioredis
 
-from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema
+from core.entities.entities import Company
+from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema, \
+    CashboxListSchema, CompanyListSchema
 from core.webax_api.WebaxHelper import WebaxHelper
 
 
@@ -10,7 +12,7 @@ class RedisApi:
     """Класс для взаизмодействия с очередями Redis"""
 
     def __init__(self):
-        self.redis = aioredis.from_url('redis://localhost')
+        self.redis = aioredis.from_url('redis://localhost', decode_responses=True, encoding="utf-8")
         self.webax = WebaxHelper()
         self.lock = asyncio.Lock()
 
@@ -38,3 +40,10 @@ class RedisApi:
         entity_json = await self.redis.hget(schema.key, entity_id)
         answer = schema.loads(entity_json)
         return answer
+
+    async def get_company_by_inn_kpp(self, inn: str, kpp: str):
+        keys = await self.redis.hkeys(CompanySchema.key)
+        for key in [str(x) for x in keys]:
+            company: Company = await self.get_entity(key, CompanySchema())
+            if company.inn == inn and company.kpp == kpp:
+                return company

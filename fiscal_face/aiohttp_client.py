@@ -4,7 +4,7 @@ import asyncio
 from core.entities.entities import Cashbox, Ofd, Company, InstallPlace
 from fiscal_service.schemas.requests import GetCashboxDataRequestSchema, GetCashboxDataRequest, \
     CashboxRegisterRequestSchema, CashboxRegisterRequest
-from fiscal_service.schemas.responds import CashboxDataAnswerSchema
+from fiscal_service.schemas.responds import CashboxDataAnswerSchema, TerminalErrorCodeSchema
 
 
 class FiscalSender:
@@ -55,5 +55,5 @@ class FiscalSender:
             headers = {'content-type': 'application/json'}
             async with session.post(url, data=json_request, headers=headers) as resp:
                 answer_json = await resp.text()
-                answer_schema = CashboxDataAnswerSchema()
+                answer_schema = TerminalErrorCodeSchema()
                 return answer_schema.loads(answer_json)

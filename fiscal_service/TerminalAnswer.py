@@ -5,15 +5,11 @@
 import struct
 from datetime import datetime
 
-
-
-
-# noinspection PyBroadException
 from fiscal_service.Enums import BinaryTypes, TerminalFAPrinterStatus
 
 
 class TerminalAnswer:
-	def getNext(self, fmt: BinaryTypes = BinaryTypes.BYTE, size=0):
+	def get_next(self, fmt: BinaryTypes = BinaryTypes.BYTE, size=0):
 		if size == 0:
 			size = fmt.size
 		if size == 0:
@@ -54,13 +50,13 @@ class TerminalStatus(TerminalAnswer):
 
 	def __init__(self, data):
 		super().__init__(data)
-		self.factoryNum = self.getNext(BinaryTypes.STRING, 12)
-		self.DateTime = self.getNext(BinaryTypes.DATETIME)
-		ans = self.getNext()
+		self.factoryNum = self.get_next(BinaryTypes.STRING, 12)
+		self.DateTime = self.get_next(BinaryTypes.DATETIME)
+		ans = self.get_next()
 		self.FatalErrors = (ans != 0)
-		self.PrinterStatus = TerminalFAPrinterStatus(self.getNext())
-		self.hasFN = (self.getNext() != 0)
-		self.phaseFN = self.getNext()
+		self.PrinterStatus = TerminalFAPrinterStatus(self.get_next())
+		self.hasFN = (self.get_next() != 0)
+		self.phaseFN = self.get_next()
 
 
 class FiscalStorageStatus(TerminalAnswer):
@@ -70,23 +66,23 @@ class FiscalStorageStatus(TerminalAnswer):
 
 	def __init__(self, data):
 		super().__init__(data)
-		self.phaseFN = self.getNext()
-		self.CurrentDocument = self.getNext()
-		self.hadDocData = self.getNext()
-		self.SessionIsOpen = (self.getNext() != 0)
-		self.Warnings = self.getNext()  # TODO обработку предупреждений
-		year = self.getNext()
-		month = self.getNext()
-		day = self.getNext()
-		hour = self.getNext()
-		minute = self.getNext()
+		self.phaseFN = self.get_next()
+		self.CurrentDocument = self.get_next()
+		self.hadDocData = self.get_next()
+		self.SessionIsOpen = (self.get_next() != 0)
+		self.Warnings = self.get_next()  # TODO обработку предупреждений
+		year = self.get_next()
+		month = self.get_next()
+		day = self.get_next()
+		hour = self.get_next()
+		minute = self.get_next()
 		if year != 0:
 			self.DateTimeLastDocument = \
 				datetime(year+2000, month, day, hour, minute).isoformat()
 		else:
 			self.DateTimeLastDocument = None
-		self.StorageNumber = self.getNext(BinaryTypes.STRING, 16)
-		self.qty = self.getNext()
+		self.StorageNumber = self.get_next(BinaryTypes.STRING, 16)
+		self.qty = self.get_next()
 
 
 class RegStatus(TerminalAnswer):
@@ -97,8 +93,8 @@ class RegStatus(TerminalAnswer):
 	def __init__(self, data):
 		super().__init__(data)
 		try:
-			self.regNum = self.getNext(BinaryTypes.STRING, 20)
-			self.inn = self.getNext(BinaryTypes.STRING, 12).strip()
+			self.regNum = self.get_next(BinaryTypes.STRING, 20)
+			self.inn = self.get_next(BinaryTypes.STRING, 12).strip()
 		except:
 			self.regNum = ''
 			self.inn = ''
@@ -109,10 +105,10 @@ class FiscalDocument(TerminalAnswer):
 
 	def __init__(self, data):
 		super().__init__(data)
-		self.docType = self.getNext()
-		self.isSent = self.getNext() != 0
-		self.dateTime = self.getNext(BinaryTypes.DATETIME)
+		self.docType = self.get_next()
+		self.isSent = self.get_next() != 0
+		self.dateTime = self.get_next(BinaryTypes.DATETIME)
 		if self.docType == 3:
-			self.docNum = self.getNext(BinaryTypes.UINT32)
-			self.fiscalSign = self.getNext(BinaryTypes.UINT32)
+			self.docNum = self.get_next(BinaryTypes.UINT32)
+			self.fiscalSign = self.get_next(BinaryTypes.UINT32)
 

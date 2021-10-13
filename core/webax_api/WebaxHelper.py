@@ -12,12 +12,12 @@ from core.webax_api.schemas.requests import UpdateStatusRequest, GetInnKppByPart
 
 class WebaxHelper:
     def __init__(self):
-        self.url = 'https://spkh-webax04.piteravto.ru/WebAX?Request'
+        self.url = 'https://spkh-webax04.piteravto.ru/WebAX_dev?Request'
         self.update_status_uid = '0fd8d67c-b393-4a2f-91bd-01aff594527b'
         self.get_inn_kpp_by_partyId_uid = 'c363c7f7-ba1f-47e2-adb0-7ad2923b3f76'
         self.update_revise_data_uid = 'd3dd3e6d-08a0-4d36-acf8-1403f67cd41c'
         self.get_inn_kpp_by_routeId_uid = 'ab4d7720-35b2-4f22-8665-906f9894deba'
-        self.get_dictionaries_uid = 'dbdea34a-cdab-4f51-8964-2811e3c0a417'
+        self.get_dictionaries_uid = '47728401-e18e-4da3-b179-82ad146cdea9' #'dbdea34a-cdab-4f51-8964-2811e3c0a417'
 
     def update_revise_data(self, region_id, company: Company, additional_tickets, missed_tickets, additional_docs,
                            missed_docs, has_error: bool, has_warning: bool, date: datetime.date,
@@ -90,5 +90,6 @@ class WebaxHelper:
             async with session.post(self.url, json=request.__dict__) as resp:
                 answer_json = await resp.json(content_type=None)
                 request_schema = UpdateDictionariesSchema()
-                request_data = request_schema.loads(answer_json['ActionData'])
+                action_data = answer_json['ActionData']
+                request_data = request_schema.loads(action_data)
                 return request_data

@@ -1,12 +1,11 @@
 import datetime
 from dataclasses import dataclass
-from enum import Enum
 
 import aiohttp.web
 
-from core.asyncdb.PostgresHelper import PostgresAsyncHelper
-from fiscal_face.atol.schemas.answers import MegapolisAnswerStatus, MegapolisApiAnswerSchema
-from fiscal_face.atol.schemas.inner import MegapolisApiErrorType
+from core.asyncdb.PostgresHelper import PostgresAsyncHelper, PostgresHelperTmp
+from fiscal_face.server.atol.schemas.answers import MegapolisAnswerStatus, MegapolisApiAnswerSchema
+from fiscal_face.server.atol.schemas.inner import MegapolisApiErrorType
 
 
 @dataclass
@@ -20,14 +19,15 @@ class MegapolisApiError:
 default_descriptions = {MegapolisApiErrorType.WRONG_TOKEN: "Токен неактивен",
                         MegapolisApiErrorType.WRONG_FIELDS_FORMAT: "Неверный формат или значения полей",
                         MegapolisApiErrorType.UNKNOWN_COMPANY: "Компания не была найдена среди относящихся к аккаунту",
-                        MegapolisApiErrorType.WRONG_TAX: "Для компании не было найдено касс с указанным "
-                                                         "типом налогообложения",
-                        MegapolisApiErrorType.TICKET_DOESNT_EXISTS: "Билет не существует"}
+                        MegapolisApiErrorType.TICKET_DOESNT_EXISTS: "Билет не существует",
+                        MegapolisApiErrorType.TICKET_ALREADY_EXISTS: "Билет с "
+                                                                     "таким идентификатором уже был отправлен в сервис",
+                        MegapolisApiErrorType.WRONG_LOGIN_OR_PASSWORD: "Неверные учётные данные"}
 
 
 class ErrorHandler:
     def __init__(self):
-        self.postgres_helper = PostgresAsyncHelper()
+        self.postgres_helper = PostgresHelperTmp()
 
     async def generate(self, error_type: MegapolisApiErrorType, request, fields_list=None, text=''):
         request = request.decode('utf-8')

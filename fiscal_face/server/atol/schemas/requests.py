@@ -22,3 +22,5 @@ class PostTicketSchema(Schema):
 
 class GetTicketSchema(Schema):
     ticket_id = fields.String(validate=validate.Length(max=50))
+    company_inn = fields.String(validate=validate.Length(equal=10), required=True)
+    company_kpp = fields.String(validate=validate.Length(equal=9), required=True)

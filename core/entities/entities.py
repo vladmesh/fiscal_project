@@ -69,8 +69,6 @@ class Company:
 
 
 class InstallPlace:
-    redis_key = 'install_places'
-
     def __init__(self, id, address):
         self.id = id
         self.address = address
@@ -88,12 +86,20 @@ class Ofd:
 
 
 @dataclass
+class Region:
+    id: str
+    timezone: str
+    ip: str  # убрать после погашения серваков регионов
+
+
+@dataclass
 class Ticket:
     id: int
     ticket_series: str
     ticket_number: str
     price: int
     payment_type: PaymentType
+    payment_date: datetime.datetime
     client_email: str
     company_id: str
     tax: Tax

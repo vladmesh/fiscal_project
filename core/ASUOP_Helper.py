@@ -9,6 +9,8 @@ from core.PostgresHelper import FinkHelper, SettingsHelper
 from core.Ticket import Ticket
 from core.TicketRecord import BULRecord
 from core.asuop_settings import ASUOP_settings
+
+from core.entities.entities import Company
 from core.utils import change_timezone
 
 
@@ -146,3 +148,6 @@ def construct(asuop_settings: ASUOP_settings) -> ASUOPHelper:
     if asuop_settings.source_type == 4:
         return ASUOP_MSSQL_AX_HELPER(asuop_settings)
     raise Exception(f"Обработчик для типа источника {asuop_settings.source_type} не реализован")
+
+
+async def cache_tickets(date_from: dt.datetime, date_to: dt.datetime, companies: set[Company], timezone:str):

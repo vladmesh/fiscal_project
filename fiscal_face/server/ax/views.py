@@ -2,7 +2,7 @@ from core.entities.entities import Cashbox
 from core.entities.entity_schemas import CashboxSchema, CompanySchema, OfdSchema, InstallPlaceSchema
 from core.redis_api.RedisApi import RedisApi
 from fiscal_face.aiohttp_client import FiscalSender
-from fiscal_face.ax.schemas.requests import CashboxRegisterSchema, CloseFNSchema
+from fiscal_face.server.ax.schemas.requests import CashboxRegisterSchema, CloseFNSchema
 import aiohttp.web
 
 from fiscal_service.schemas.responds import CashboxDataAnswerSchema, TerminalErrorCodeSchema

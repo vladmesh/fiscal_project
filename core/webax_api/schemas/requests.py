@@ -22,3 +22,8 @@ class GetInnKppByRoute(WebaxRequest):
         self.releaseDate = str(release_date)
         self.region = region
         WebaxRequest.__init__(self, uid)
+
+
+class WebaxRequestGetSourceSettings(WebaxRequest):
+    def __init__(self, uid):
+        WebaxRequest.__init__(self, uid)

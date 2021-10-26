@@ -2,7 +2,7 @@ from core.entities.entities import Cashbox
 from core.redis_api.RedisApi import RedisApi
 from fiscal_service.CashboxSender import CashboxSender
 from fiscal_service.schemas.requests import GetCashboxDataRequestSchema, GetCashboxDataRequest, \
-    CashboxRegisterRequestSchema, CashboxRegisterRequest
+    CashboxRegisterRequestSchema, CashboxRegisterRequest, CloseCashboxRequestSchema
 from fiscal_service.schemas.responds import GetCashboxDataAnswer, CashboxDataAnswerSchema, \
     init_answer_from_status_answers, TerminalErrorCodeSchema
 
@@ -27,7 +27,14 @@ async def get_cashbox_data(request):
 
 
 async def close_fn(request):
-    pass
+    data = await request.read()
+    schema = CloseCashboxRequestSchema()
+    request: dict = schema.loads(data)
+    sender = CashboxSender(request['id'], request['port'])
+    code = sender.close_session()
+    schema_answer = TerminalErrorCodeSchema()
+    answer_dict = {"code": code.code, "description": code.description}
+    return aiohttp.web.Response(text=schema_answer.dumps(answer_dict), content_type='application/json')
 
 
 async def register_cashbox(request):

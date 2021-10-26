@@ -3,8 +3,7 @@ import asyncio
 import aioredis
 
 from core.entities.entities import Company
-from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema, \
-    CashboxListSchema, CompanyListSchema
+from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema
 from core.webax_api.WebaxHelper import WebaxHelper
 
 
@@ -16,10 +15,9 @@ class RedisApi:
         self.webax = WebaxHelper()
         self.lock = asyncio.Lock()
 
-    async def get_new_tickets(self):
-        await self.redis.set("ticket", 't1')
-        ticket = await self.redis.get("ticket")
-        return [ticket]
+    async def get_new_tickets(self) -> list:
+        tickets = await self.redis.get("tickets")
+        return tickets
 
     async def get_cashboxes(self):
         pass
@@ -47,3 +45,7 @@ class RedisApi:
             company: Company = await self.get_entity(key, CompanySchema())
             if company.inn == inn and company.kpp == kpp:
                 return company
+
+    async def get_cashbox_for_ticket(self, ticket):
+        free_cashbox = await self.redis.hget(ticket.company_id, 1)
+        return free_cashbox

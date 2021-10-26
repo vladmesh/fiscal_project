@@ -4,6 +4,8 @@ from aiomisc.service.periodic import PeriodicService
 
 from core.asyncdb.PostgresHelper import PostgresAsyncHelper, PostgresHelperDev, PostgresHelperTmp
 from core.redis_api.RedisApi import RedisApi
+from fiscal_service.CashboxSender import CashboxSender
+import asyncio
 
 
 class FiscalPeriodic(PeriodicService):
@@ -13,18 +15,13 @@ class FiscalPeriodic(PeriodicService):
 
     async def callback(self):
         print('periodic_fiscal')
-        postgres_helper_dev = PostgresHelperDev()
-        postgres_helper_tmp = PostgresHelperTmp()
-        unfiscal_tickets = await postgres_helper_tmp.get_unfiscal_tickets()
-        for ticket in unfiscal_tickets:
-            try:
-                await postgres_helper_dev.insert_ticket_dev(ticket)
-            except:
-                pass
-        uniported_documents = await postgres_helper_dev.get_unimported_documents()
-        for doc in uniported_documents:
-            ticket = await postgres_helper_tmp.get_ticket(doc.ticket_id)
-            doc.ticket_id = ticket.id
-            await postgres_helper_tmp.insert_document(doc)
-            await postgres_helper_dev.set_doc_imported(doc.id)
-
+        unfiscal_tickets = await self.redis_api.get_new_tickets()
+        if unfiscal_tickets:
+            for ticket in unfiscal_tickets:
+                try:
+                    cashbox = await self.redis_api.get_cashbox_for_ticket(ticket)
+                    sender = CashboxSender(cashbox.ip, cashbox.port)
+                    loop = asyncio.get_event_loop()
+                    loop.create_task(sender.fiscal_ticket(ticket))
+                except:
+                    pass  # TODO Send ERRORS

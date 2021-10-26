@@ -39,7 +39,7 @@ class ErrorHandler:
         if text == '':
             text = default_descriptions[error_type]
         error = MegapolisApiError(0, error_type, text, fields_list)
-        error.error_id = await self.postgres_helper.insert_error(error, request)
+        error.error_id = 1 #await self.postgres_helper.insert_error(error, request)
         answer_schema = MegapolisApiAnswerSchema()
         answer_dict = {'status': MegapolisAnswerStatus.ERROR, 'timestamp': datetime.datetime.now(), 'error': error}
         answer_json = answer_schema.dumps(answer_dict)

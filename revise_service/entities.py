@@ -1,6 +1,15 @@
 from datetime import datetime, timedelta
 from core.utils import change_timezone
+from enum import Enum
 from dateutil import tz
+
+
+class SourceType(Enum):
+    Oracle_ASUOP = 1
+    MySql = 2
+    MSSQL_BUL = 3
+    MSSQL_Trans = 4
+    AxValidatorTrans = 5
 
 
 class ReviseTicket:
@@ -13,8 +22,12 @@ class ReviseTicket:
             self.date_ins = record['date_ins_asuop']
             self.payment_type = record['payment_type']
             self.date_trip = record['date_trip']
-            self.inn = record['inn']
-            self.kpp = record['kpp']
+            if 'inn' in record:
+                self.inn = record['inn']
+            if 'kpp' in record:
+                self.kpp = record['kpp']
+            if 'company_id' in record:
+                self.company_id = record['company_id']
             self.vat = record['vat_name']
             self.tax = record['tax_name']
             self.price = record['price']
@@ -40,23 +53,27 @@ class ReviseTicket:
         self.date_trip = change_timezone(record['DATETRIP'], timezone, 'utc')
         self.price = int(record['PRICE'])
 
-    def init_from_ax_transaction(self, record, timezone):
+    def init_from_view_transaction(self, record):
+        timezone = 'Asia/Novokuznetsk' if record['dataAreaId'] == 'nkz' else 'Europe/Moscow'  # TODO вынести в
+        # какую-нибудь настройку
         self.id = record['axRecId']
         trans_date_time = record['rrTransDateTimeUtc0']
         self.price = 0 if record['rrAmountTerminal'] is None else int(record['rrAmountTerminal'] * 100)
         tid = record['rrTerminalId']
         self.ticket_number = record['rrPaymentERN']
-        self.payment_type = 1
+        if record['axPassCardTypeId'] == 14:
+            self.payment_type = 1
+        elif record['axPassCardTypeId'] == 32:
+            self.payment_type = 2
+        else:
+            raise Exception("Неверный тип карты")
+
         self.inn = record['axINN_RUCalc4Fiscal']
         self.kpp = record['axKPPU_RUCalc4Fiscal']
-        if self.inn == '' and self.kpp == '' and trans_date_time < datetime(2021, 4, 15):
-            self.inn = '7819027463'
-            self.kpp = '425345001'
         self.date_ins = record['rrRegDateTimeUtc0']
         release_date = datetime.strptime(record['axDateRelease'], '%Y-%m-%d')
         time_abs = record['axTimeAbs']
         local_dt_from_ax = release_date + timedelta(seconds=time_abs)
-        # ax_date_time = local_dt_from_ax - timedelta(hours=7)
         self.date_trip = change_timezone(local_dt_from_ax, timezone, 'utc')
         local_dt_from_terminal = change_timezone(trans_date_time, 'utc', timezone)
         self.ticket_series = local_dt_from_terminal.strftime("%d%m%Y%H%M%S") + f"-{tid}"
@@ -70,8 +87,15 @@ class ReviseTicket:
         td = record['terminal_date']
         self.date_ins = record['created_date']
         self.date_trip = td
-        self.ticket_series = td.strftime("%m%d%Y") + "-" + record['terminal_id']
+        terminal_id = record['terminal_id']
+        if terminal_id == '':
+            terminal_id = record['terminal_reg_num']
+        self.ticket_series = td.strftime("%m%d%Y") + "-" + terminal_id
         self.ticket_number = str(td.hour * 60 * 60 + td.minute * 60 + td.second)
+        if record['bank_source'] == 'Gazprombank':
+            self.ticket_number += '-' + str(record['record_id'])
+        self.inn = record['fiscal_inn']
+        self.kpp = record['fiscal_kpp']
 
     def __str__(self):
         return self.ticket_series + '\t' + self.ticket_number
@@ -111,8 +135,12 @@ class ReviseDocument:
                 self.vat = record['vat_name']
             self.type = record['type_id']
             self.payment_type = record['payment_type']
-            self.inn = record['inn']
-            self.kpp = record['kpp']
+            if 'inn' in record:
+                self.inn = record['inn']
+            if 'kpp' in record:
+                self.kpp = record['kpp']
+            if 'company_id' in record:
+                self.company_id = record['company_id']
 
     @staticmethod
     def to_utc(local_date, timezone):

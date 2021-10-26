@@ -68,3 +68,7 @@ class CashboxRegisterRequestSchema(CashboxCommandRequestSchema):
     @post_load
     def make_model(self, data, **kwargs):
         return CashboxRegisterRequest(**data)
+
+
+class CloseCashboxRequestSchema(CashboxCommandRequestSchema):
+    pass

@@ -2,152 +2,150 @@ from abc import ABC, abstractmethod
 
 import datetime as dt
 
-from core.MSSQLHelper import MSsqlOLEDB, MSSql
-from core.MySqlHelper import MySqlHelper
-from core.OracleHelper import OracleHelper
-from core.PostgresHelper import FinkHelper, SettingsHelper
-from core.Ticket import Ticket
-from core.TicketRecord import BULRecord
-from core.asuop_settings import ASUOP_settings
-
-from core.entities.entities import Company
+from core.asyncdb.MSSQLHelper import MSSql
+from core.asyncdb.MySqlHelper import MySqlHelper
+from core.entities.entities import Company, SourceSettings
 from core.utils import change_timezone
+from core.webax_api.WebaxHelper import WebaxHelper
+from revise_service.entities import SourceType, ReviseTicket
 
 
-class ASUOPHelper(ABC):
+class BULRecord:
+    def __init__(self, record):
+        self.date = record['DATE']
+        self.route_id = record['ROUTEID']
+        self.spool_id = record['SPOOLID'].upper()
+        self.ticket_number_from = record['TICKETNUMBERFROM']
+        self.ticket_number_to = record['TICKETNUMBERTO']
+        self.release = record['RELEASE']
+        self.id = record['RECID']
+        self.vat = "NONDS" if record['VAT'] == 6 else "NDS20"
+        self.created_dt = record['DATEINS']
+        self.inn = record['INN_RU']
+        self.kpp = record['KPP_RU']
+
+    def get_tickets(self):
+        tickets = set()
+        for i in range(self.ticket_number_from, self.ticket_number_to):
+            ticket = ReviseTicket()
+            ticket.date_trip = self.date
+            ticket.date_ins = self.created_dt
+            series_split = self.spool_id.split('-')
+            if i == 1000:
+                tmpnum = '000'
+            else:
+                tmpnum = f"{'0' * (3 - len(str(i)))}{i}"
+            ticket.ticket_number = f"{series_split[2]}{tmpnum}"
+            ticket.payment_type = 1
+            ticket.inn = self.inn.strip()
+            ticket.kpp = self.kpp.strip()
+            # ticket.type = self.fiscal_type
+            ticket.price = int(float(series_split[3]) * 100)
+            ticket.ticket_series = f"{series_split[0]}-{series_split[1]}-{ticket.price}"
+            ticket.ticket_series = ticket.ticket_series.upper()
+            ticket.recid = self.id
+            ticket.route_id = self.route_id
+            ticket.vat = self.vat
+            ticket.release = self.release
+            ticket.spool_id = self.spool_id
+            tickets.add(ticket)
+        return tickets
+
+
+class SourceHelper(ABC):
     @abstractmethod
-    def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime, timezone) -> set:
+    async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime) -> set:
         return set()
 
-    def __init__(self, settings: ASUOP_settings):
+    def __init__(self, settings: SourceSettings):
         self.settings = settings
 
 
-class ASUOP_Oracle_Helper(ASUOPHelper, OracleHelper):
-    """Классический АСУОП на базе оракл, на 07.21 работает в Влг, Сочи, ПТЗ"""
-
-    def __init__(self, settings: ASUOP_settings):
-        conn_string = f'{settings.login}/{settings.password}@{settings.address}/{settings.db_name}'
-        OracleHelper.__init__(self, conn_string)
-        ASUOPHelper.__init__(self, settings)
-
-    def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime, timezone):
-        answer = set()
-        fink = FinkHelper()
-        divisions = fink.get_divizions()
-        fink_companies = fink.get_companies()
-        fink_routes = fink.get_routes()
-        divisions_str = ','.join([f"'{x}'" for x in divisions])
-        fink_query = self.settings.query
-        date_from = change_timezone(date_from, 'utc', timezone)
-        date_to = change_timezone(date_to, 'utc', timezone)
-        q = fink_query.replace('{comp}', f'{divisions_str}').replace('{start}',
-                                                                     f"{date_from.strftime('%d.%m.%Y %H:%M:%S')}")
-        q = q.replace('{end}', f"{date_to.strftime('%d.%m.%Y %H:%M:%S')}")
-        records = self.execute(command=q)
-        for record in records:
-            ticket = Ticket()
-            ticket.init_from_oracle(record, timezone)
-            company = next(x for x in fink_companies if x.division == record['ID_DIVISION'])
-            ticket.inn = company.inn
-            ticket.kpp = company.kpp
-            route = next(x for x in fink_routes if x.code == record['ID_ROUTE'])
-            ticket.vat = route.vat
-            answer.add(ticket)
-        return answer
-
-
-class ASUOP_MS_OLEDB_Helper(ASUOPHelper, MSsqlOLEDB):
-    """Базы MSSQL с доступом через протокол OLEDB, на 06.21 такая используется в НКЗ и как вспомогательная в Сочи"""
-
-    def __init__(self, local_settings: ASUOP_settings):
-        ASUOPHelper.__init__(self, local_settings)
-        MSsqlOLEDB.__init__(self, local_settings.address, local_settings.db_name)
-        self.settings = SettingsHelper().getSettings()
-
-    def get_tickets_on_date(self, date_from, date_to, timezone):
-        answer = set()
-        date_from_str = date_from.strftime("%Y-%m-%dT%H:%M:%S")
-        date_to_str = date_to.strftime("%Y-%m-%dT%H:%M:%S")
-        command = f"select  axRecId, rrTransDateTimeUtc0, rrAmountTerminal, rrTerminalId, rrPaymentERN, " \
-                  f" axRouteId, rrTransRouteNum, axDateRelease, axTimeAbs, axRouteId, " \
-                  f"axINN_RUCalc4Fiscal, axKPPU_RUCalc4Fiscal, " \
-                  f"rrRegDateTimeUtc0 from  dbo.v_ValidatorTransImportView4Fiscal where" \
-                  f" rrRegDateTimeUtc0 >= '{date_from_str}' " \
-                  f"and rrRegDateTimeUtc0 < '{date_to_str}' and axPassCardTypeId = 14 " \
-                  f"and axRouteId not in (24, 18) order by axRecId"
-        rows = self.execute(command)
-        for row in rows:
-            ticket = Ticket()
-            ticket.init_from_ax_transaction(row, timezone)
-            answer.add(ticket)
-        return answer
-
-
-class ASUOP_MYSQL_SPB_HELPER(ASUOPHelper, MySqlHelper):
+class SourceMysqlHelper(SourceHelper):
     """База MySql, используется в СПБ для хранения безналичных транзакций"""
-    def __init__(self, local_settings: ASUOP_settings):
-        ASUOPHelper.__init__(self, local_settings)
-        MySqlHelper.__init__(self, local_settings.address, local_settings.db_name, local_settings.login,
-                             local_settings.password)
-        self.settings = SettingsHelper().getSettings()
 
-    def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime, timezone):
+    def __init__(self, settings: SourceSettings):
+        self.mysqlHelper = MySqlHelper(settings.address, settings.database_name,
+                                       settings.login,
+                                       settings.password)
+        SourceHelper.__init__(self, settings)
+
+    async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime):
         answer = set()
-        command = f"SELECT * FROM TicketBankTrans where created_date >= '{date_from}' and created_date < '{date_to}' "
-        rows = self.execute_query(command)
+        command = self.settings.query_revise.replace('{date_from}', str(date_from)).replace('{date_to}', str(date_to))
+        rows = await self.mysqlHelper.execute_query(command)
         for row in rows:
-            ticket = Ticket()
+            ticket = ReviseTicket()
             ticket.init_from_mysql_transaction(row)
             answer.add(ticket)
         return answer
 
 
-class ASUOP_MSSQL_AX_HELPER(ASUOPHelper, MSSql):
+class SourceHelperMsSqlAxBUL(SourceHelper):
     """Аксаптовские БД MSSQL, в них хранится наличка по СПБ"""
-    def __init__(self, local_settings: ASUOP_settings):
-        ASUOPHelper.__init__(self, local_settings)
-        MSSql.__init__(self, local_settings.address, local_settings.db_name, local_settings.login,
-                       local_settings.password)
-        self.settings = SettingsHelper().getSettings()
 
-    def get_intervals_on_date(self, date_from: dt.datetime, date_to: dt.datetime):
+    def __init__(self, local_settings: SourceSettings):
+        self.mssql_helper = MSSql(local_settings.address, local_settings.database_name, local_settings.login,
+                                  local_settings.password)
+        SourceHelper.__init__(self, local_settings)
+
+    async def get_intervals_on_date(self, date_from: dt.datetime, date_to: dt.datetime):
         date_from_str = date_from.strftime("%Y-%m-%dT%H:%M:%S")
         date_to_str = date_to.strftime("%Y-%m-%dT%H:%M:%S")
         answer = []
-        command = f"select DATE, f.ROUTEID, f.SPOOLID, TICKETNUMBERFROM, TICKETNUMBERTO, VAT, " \
-                  f"RELEASE, f.RECID, f.CREATEDDATETIME, INN_RU, KPP_RU, s.PRICE from dbo.fiscalticketsforbul f" \
-                  f" join dbo.A_TICKETSPOOL s on (s.SPOOLID = f.SPOOLID and s.DATAAREAID = f.DATAAREAID) " \
-                  f" join dbo.RouteReleaseTypeExtLink link on (link.ROUTEID = f.ROUTEID and link.DATEFROM <= f.DATE " \
-                  f" and (link.DATETO > f.DATE or link.DATETO = '1900-01-01 00:00:00') and link.DATAAREAID = " \
-                  f"f.DATAAREAID) " \
-                  f" join dbo.FiscalFIReleaseTypeTaxLink flink on (flink.FIReleaseType = link.ReleaseTypeExt)"
-        command += f" where f.CREATEDDATETIME >= '{date_from_str}' and f.CREATEDDATETIME < '{date_to_str}'"
-        command += ' order by RECID'
-        rows = self.execute(command)
+        command = self.settings.query_revise.replace('{date_from}', date_from_str).replace('{date_to}', date_to_str)
+        rows = await self.mssql_helper.execute(command)
         for row in rows:
             bul_record = BULRecord(row)
             answer.append(bul_record)
         return answer
 
-    def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime, timezone) -> set:
+    async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime) -> set:
         answer = set()
-        intervals = self.get_intervals_on_date(date_from, date_to)
+        intervals = await self.get_intervals_on_date(date_from, date_to)
         for interval in intervals:
             answer = answer.union(interval.get_tickets())
         return answer
 
 
-def construct(asuop_settings: ASUOP_settings) -> ASUOPHelper:
-    if asuop_settings.source_type == 5:
-        return ASUOP_MS_OLEDB_Helper(asuop_settings)
-    if asuop_settings.source_type == 2:
-        return ASUOP_Oracle_Helper(asuop_settings)
-    if asuop_settings.source_type == 3:
-        return ASUOP_MYSQL_SPB_HELPER(asuop_settings)
-    if asuop_settings.source_type == 4:
-        return ASUOP_MSSQL_AX_HELPER(asuop_settings)
-    raise Exception(f"Обработчик для типа источника {asuop_settings.source_type} не реализован")
+class SourceHelperMsSqlTrans(SourceHelper):
+    """Вьюхи с транзакциями"""
+
+    def __init__(self, local_settings: SourceSettings):
+        self.mssql_helper = MSSql(local_settings.address, local_settings.database_name, local_settings.login,
+                                  local_settings.password)
+        SourceHelper.__init__(self, local_settings)
+
+    async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime) -> set:
+        date_from_str = date_from.strftime("%Y-%m-%dT%H:%M:%S")
+        date_to_str = date_to.strftime("%Y-%m-%dT%H:%M:%S")
+        answer = set()
+        command = self.settings.query_revise.replace('{date_from}', date_from_str).replace('{date_to}', date_to_str)
+        rows = await self.mssql_helper.execute(command)
+        for row in rows:
+            ticket = ReviseTicket()
+            ticket.init_from_view_transaction(row)
+            if row['dataAreaId'] == 'nkz':
+                if ticket.inn == '' and ticket.kpp == '' and ticket.date_trip < dt.datetime(2021, 4, 15):
+                    # костыль для сверки старых транзакций по Нкз
+                    ticket.inn = '7819027463'
+                    ticket.kpp = '425345001'
+        return answer
 
 
-async def cache_tickets(date_from: dt.datetime, date_to: dt.datetime, companies: set[Company], timezone:str):
+def construct(asuop_settings: SourceSettings) -> SourceHelper:
+    if asuop_settings.type == SourceType.MSSQL_BUL:
+        return SourceHelperMsSqlAxBUL(asuop_settings)
+    if asuop_settings.type == SourceType.MySql:
+        return SourceMysqlHelper(asuop_settings)
+    raise Exception(f"Обработчик для типа источника {asuop_settings.type} не реализован")
+
+
+async def sources_cache_tickets(utc_date_from: dt.datetime, utc_date_to: dt.datetime) -> set:
+    webax = WebaxHelper()
+    tickets = set()
+    asuop_settings_list = await webax.get_sources_settings()
+    for asuop_settings in asuop_settings_list:
+        asoup_helper = construct(asuop_settings)
+        tickets = tickets.union(await asoup_helper.get_tickets_on_date(utc_date_from, utc_date_to))
+    return tickets

@@ -127,3 +127,21 @@ class CashboxSender:
                                    document_num.to_bytes(4, 'little') + int.to_bytes(0, 1, 'big'))
         document = FiscalDocument(self.send(command))
         return document
+
+    def close_session(self):
+        command = generate_command(Commands.CLOSE_SESSION)
+        answer = self.send(command)
+        return answer
+
+    def fiscal_ticket(self, ticket):
+        command = generate_command(Commands.BEGIN_RECEIPT)
+        answer = self.send(command)
+        data = b''
+        position_data = b''
+        position_data += generate_parameter_str(1030, ticket.subject_name)
+        position_data += generate_parameter_int(1079, ticket.price)
+        position_data += generate_parameter_int(1023, 1)
+        position_data += generate_parameter_int(1199, ticket.vat)
+        data += generate_parameter_str(1059, str(position_data))
+        answer = self.send(generate_command(Commands.RECEIPT_POSITION, data))
+        return answer

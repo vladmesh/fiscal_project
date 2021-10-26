@@ -25,7 +25,8 @@ async def start_revise(request):
     error = await revise.init()
     if error:
         return aiohttp.web.Response(text=f'{{"error": "{error}"}}', content_type='application/json', status=400)
-    asyncio.create_task(revise.run())
+    loop = asyncio.get_event_loop()
+    loop.create_task(revise.run())
     return aiohttp.web.Response(text='{"answer": "OK"}', content_type='application/json')
 
 

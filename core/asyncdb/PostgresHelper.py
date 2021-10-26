@@ -1,7 +1,7 @@
 import aiopg as aiopg
 
 from core.entities.Enums import Tax, Vat, PaymentType, DocumentType
-from core.entities.entities import Document, Ticket
+from core.entities.entities import Document, Ticket, Company
 from revise_service.entities import ReviseTicket, ReviseDocument
 
 
@@ -11,7 +11,7 @@ class PostgresAsyncHelper:
 
     async def execute_query(self, query, has_result=True):
         answer = None
-        async with aiopg.create_pool(self.dsn) as pool:
+        async with aiopg.create_pool(self.dsn, timeout=500) as pool:
             async with pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(query)
@@ -27,38 +27,121 @@ class PostgresHelperDbf(PostgresAsyncHelper):
     def __init__(self):
         super().__init__(host='10.2.50.17', user='fiscal', password='fiscal', dbname='fiscaldb_new', port=5433)
 
-    async def get_documents_by_date_fiscal(self, date_from, date_to, region, timezone):
+    async def get_documents_by_date_fiscal(self, date_from, date_to, companies):
         documents = set()
-        command = f"set timezone = '{timezone}'; select d.id, fn_number, fiscal_number, fiscal_sign, session_num," \
+        command = f"set timezone = 'utc'; select d.id, fn_number, fiscal_number, fiscal_sign, session_num," \
                   f" num_in_session, date_fiscal, price, additional_prop, tickets_tax.name as tax_name," \
                   f" tickets_vat.name as vat_name," \
                   f" ticket_id, type_id, payment_type, inn, kpp " \
                   f"from public.tickets_fiscaldocument d " \
-                  f"join public.tickets_company on (region_id = {region} and " \
+                  f"join public.tickets_company on ( " \
                   f"tickets_company.id = d.company_id) " \
                   f"join public.tickets_tax on (tickets_tax.id = d.tax_id) " \
                   f"join public.tickets_vat on (tickets_vat.id = d.vat_id) " \
-                  f"where date_fiscal >= '{date_from}' and date_fiscal < '{date_to}' "
+                  f"where date_fiscal >= '{date_from}' and date_fiscal < '{date_to}' and d.company_id in {companies}"
         rows = await self.execute_query(command)
         for row in rows:
             documents.add(ReviseDocument(row))
         return documents
 
-    async def get_tickets_by_date_ins(self, date_from, date_to, region, timezone):
+    async def get_tickets_by_date_ins(self, date_from, date_to, companies):
         tickets = set()
-        command = f"set timezone = '{timezone}'; select t.id, ticket_number, ticket_series, date_trip, " \
+        command = f"set timezone = 'utc'; select t.id, ticket_number, ticket_series, date_trip, " \
                   f"date_ins_asuop, payment_type, price, tickets_tax.name as tax_name," \
                   f" tickets_vat.name as vat_name, inn, kpp " \
                   f"from public.tickets_fiscalticket t " \
-                  f"join public.tickets_company on (region_id = {region} and " \
+                  f"join public.tickets_company on ( " \
                   f"tickets_company.id = t.company_id) " \
                   f"join public.tickets_tax on (tickets_tax.id = t.tax_id) " \
                   f"join public.tickets_vat on (tickets_vat.id = t.vat_id) " \
-                  f"where date_ins_asuop >= '{date_from}' and date_ins_asuop < '{date_to}' "
+                  f"where date_ins_asuop >= '{date_from}' and date_ins_asuop < '{date_to}' " \
+                  f"and t.company_id in {companies}"
         rows = await self.execute_query(command)
         for row in rows:
             tickets.add(ReviseTicket(row))
         return tickets
+
+    async def insert_ticket(self, ticket: Ticket):
+        command = "INSERT INTO public.tickets_fiscalticket(date_create,  ticket_number, ticket_series, " \
+                  "date_trip, date_ins_asuop, date_ins_sf, payment_type, price, company_id, " \
+                  f"payment_option_id, tax_id, vat_id)  VALUES(now(), '{ticket.ticket_number}', " \
+                  f"'{ticket.ticket_series}', '{ticket.date_trip}', '{ticket.date_ins}', null , " \
+                  f"{ticket.payment_type.value}, {ticket.price}, {ticket.company_id}, null, {ticket.tax.value}, " \
+                  f"{ticket.vat.value});"
+        await self.execute_query(command, False)
+
+    async def insert_document(self, document: Document):
+        command = "INSERT INTO public.tickets_fiscaldocument(date_create, fn_number, fiscal_number, fiscal_sign, " \
+                  "session_num, num_in_session, date_fiscal, date_ins_sf, price, additional_prop, " \
+                  " is_storned,  company_id, tax_id,  type_id, vat_id, payment_type) " \
+                  f"VALUES (now(), {document.fiscal_storage_number}, {document.fiscal_number}, " \
+                  f"{document.fiscal_sign}, {document.session_num}, {document.num_in_session}, " \
+                  f"'{document.fiscal_date}', null, {document.price}, null, false, {document.company_id}, " \
+                  f"{document.tax.value}, {document.document_type.value}, {document.vat.value}, " \
+                  f"{document.payment_type.value});"
+        await self.execute_query(command, False)
+
+    async def get_company_id_by_inn_kpp(self, inn, kpp):
+        command = f"select id from public.tickets_company where inn = '{inn}' and kpp = '{kpp}' "
+        rows = await self.execute_query(command)
+        if len(rows) == 0:
+            return None
+        return rows[0]['id']
+
+    async def get_companies_by_region(self, region_id):
+        command = f"select * from public.tickets_company where region_id = '{region_id}' "
+        rows = await self.execute_query(command)
+        if len(rows) == 0:
+            return None
+        answer = []
+        for row in rows:
+            answer.append(Company(**row))
+        return answer
+
+    async def get_region_id_by_name(self, region_name):
+        command = f"select id from public.tickets_region where name = '{region_name}'"
+        rows = await self.execute_query(command)
+        if len(rows) == 0:
+            return None
+        return rows[0]['id']
+
+    async def get_tickets_without_docs(self):
+        answer = []
+        command = "select company_id, id as dbf_id, vat_id as vat, tax_id as tax, date_trip, price, payment_type" \
+                  " from tickets_fiscalticket t where not exists " \
+                  "(select 1 from tickets_fiscaldocument d where " \
+                  "d.ticket_id = t.id) and id > 150000000"
+        rows = await self.execute_query(command)
+        for row in rows:
+            ticket = Ticket(**row)
+            answer.append(ticket)
+        return answer
+
+    async def get_document_for_ticket(self, ticket: ReviseTicket, need_date):
+        command = f"select * from tickets_fiscaldocument d " \
+                  f"where d.company_id = {ticket.company_id} and d.vat_id = {ticket.vat} " \
+                  f"and d.tax_id = {ticket.tax} and d.price = {ticket.price} " \
+                  f"and d.payment_type = {ticket.payment_type} and d.ticket_id is null " \
+                  f"and is_storned = false and type_id in (1,8) "
+        if need_date:
+            command += f" and d.date_fiscal > '{ticket.date_trip}'"
+        rows = await self.execute_query(command)
+        if len(rows) == 0:
+            return None
+        return ReviseDocument(rows[0])
+
+    async def bind_doc_to_ticket(self, doc: ReviseDocument, ticket: Ticket):
+        command = f"update tickets_fiscaldocument set ticket_id = {ticket.dbf_id} where id = {doc.id}"
+        await self.execute_query(command, False)
+
+    async def remove_ticket(self, ticket):
+        command = f"delete from tickets_fiscalticket where id = {ticket.dbf_id}"
+        await self.execute_query(command, False)
+
+    async def remove_documents_without_tickets(self):
+        command = "delete from public.tickets_fiscaldocument where type_id in (1,8) and is_storned = false " \
+                  "and ticket_id is null"
+        await self.execute_query(command, False)
 
 
 class PostgresHelperDev(PostgresAsyncHelper):

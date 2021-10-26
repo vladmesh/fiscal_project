@@ -1,7 +1,4 @@
 from marshmallow import validate, Schema, fields
-from marshmallow_enum import EnumField
-
-from core.entities.Enums import Vat, PaymentType
 
 
 class StartReviseSchema(Schema):
@@ -12,7 +9,5 @@ class StartReviseSchema(Schema):
     need_non_cash = fields.Bool(required=True)
     need_tickets = fields.Bool(required=True)
     need_documents = fields.Bool(required=True)
-    region_id = fields.String(validate=validate.Length(max=5))
-    company_inn = fields.String(validate=validate.Length(equal=10))
-    company_kpp = fields.String(validate=validate.Length(equal=9))
+    companies = fields.List(fields.String(), required=True)
     email = fields.Email()

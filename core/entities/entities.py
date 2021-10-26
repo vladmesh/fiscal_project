@@ -1,7 +1,10 @@
 import datetime
+from typing import List
+
 from dataclasses import dataclass
 
 from core.entities.Enums import PaymentType, Tax, Vat, DocumentType
+from revise_service.entities import SourceType
 
 
 class Cashbox:
@@ -42,12 +45,15 @@ class Company:
                  provider_phone=None,
                  provider_inn=None,
                  additional_field_meaning=None,
-                 additional_field_value=None
+                 additional_field_value=None,
+                 timezone=None,
+                 divisions=None
                  ):
         self.id = id
         self.inn = inn
         self.kpp = kpp
         self.name = name
+        self.timezone = timezone
         self.full_name = full_name
         self.region = region
         self.payment_place = payment_place
@@ -59,6 +65,7 @@ class Company:
         self.provider_inn = provider_inn
         self.additional_field_meaning = additional_field_meaning
         self.additional_field_value = additional_field_value
+        self.divisions = divisions
 
     def init_from_fink(self, record):
         self.id = record['companyid']
@@ -85,33 +92,64 @@ class Ofd:
         self.email = email
 
 
-@dataclass
-class Region:
-    id: str
-    timezone: str
-    ip: str  # убрать после погашения серваков регионов
-
 
 @dataclass
 class Ticket:
-    id: int
-    ticket_series: str
-    ticket_number: str
-    price: int
-    payment_type: PaymentType
-    payment_date: datetime.datetime
-    client_email: str
-    company_id: str
-    tax: Tax
-    vat: Vat
+    ticket_series: str = None
+    ticket_number: str = None
+    price: int = None
+    payment_type: PaymentType = None
+    date_trip: datetime.datetime = None
+    date_ins: datetime.datetime = None
+    tax: Tax = None
+    vat: Vat = None
+    dbf_id: int = None
+    asuop_id: str = None
+    client_email: str = None
+    company_id: str = None
 
 
 @dataclass
 class Document:
-    id: int
     fiscal_storage_number: int
     fiscal_number: int
     fiscal_sign: int
     fiscal_date: datetime.datetime
-    ticket_id: int
     document_type: DocumentType
+    session_num: int
+    num_in_session: int
+    tax: Tax
+    vat: Vat
+    payment_type: PaymentType
+    price: int
+    ticket_id: int = None
+    company_id: str = None
+    cashbox_id: int = None
+    additional_prop: str = None
+    dbf_id: int = None
+    ofd_id: str = None
+
+
+@dataclass
+class SourceSettings:
+    id: str
+    type: SourceType
+    address: str
+    port: int
+    database_name: str
+    login: str
+    password: str
+    query_new_tickets: str
+    query_revise: str
+
+
+@dataclass
+class Route:
+    route_num: str
+    vat: Vat
+
+
+@dataclass
+class Division:
+    id: int
+    routes: List[Route]

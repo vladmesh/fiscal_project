@@ -1,7 +1,6 @@
 import asyncio
 import datetime
 
-
 # class CompanyChecker:
 #     def __init__(self, company: Company, settings, date):
 #         self.company = company
@@ -314,10 +313,13 @@ import datetime
 #             self.missed_documents = self.missed_documents.union(company_checker.missed_documents)
 #             self.additional_tickets = self.additional_tickets.union(company_checker.additional_tickets)
 #             self.additional_documents = self.additional_documents.union(company_checker.additional_documents)
+from core.ASUOP_Helper import sources_cache_tickets
 from core.asyncdb.PostgresHelper import PostgresHelperDbf
 from core.entities.entities import Company
-from core.entities.entity_schemas import RegionSchema
+from core.entities.entity_schemas import CompanySchema
+
 from core.redis_api.RedisApi import RedisApi
+from core.utils import change_timezone
 
 
 class Revise:
@@ -329,9 +331,7 @@ class Revise:
                  need_non_cash: bool,
                  need_tickets: bool,
                  need_documents: bool,
-                 region_id: str = None,
-                 company_inn: str = None,
-                 company_kpp: str = None,
+                 companies: list = None,
                  email: str = None):
         self.revise_id = revise_id
         self.date_from = date_from
@@ -340,33 +340,27 @@ class Revise:
         self.need_non_cash = need_non_cash
         self.need_tickets = need_tickets
         self.need_documents = need_documents
-        self.region_id = region_id
-        self.company_inn = company_inn
-        self.company_kpp = company_kpp
+        self.companies_party_id: list = companies
         self.email = email
         self.companies = set()
         self.dbf_tickets = set()
         self.dbf_documents = set()
-        self.timezone = 'UTC'
-        self.region = None
+        self.asuop_tickets = set()
+        self.ofd_documents = set()
+        self.missed_tickets = set()
+        self.additional_tickets = set()
+        self.missed_documents = set()
+        self.additional_documents = set()
         self.redis = RedisApi()
-
-    async def init(self):
-        if self.region_id:
-            if self.region_id not in ("TST", "MSK", "SPB", "MO", "VLG", "SCH", "NKZ", "PET"):
-                return f"unknown region - {self.region_id}"
-        if self.company_inn and self.company_kpp:
-            company = await self.redis.get_company_by_inn_kpp(self.company_inn, self.company_kpp)
-            if company is None:
-                raise ValueError(f"unknown company with inn - '{self.company_inn}' and kpp - '{self.company_kpp}'")
-            self.companies.add(company)
-            self.region_id = self.region
-        if not self.region_id:
-            raise ValueError(f"Empty region")
-        self.region = await self.redis.get_entity(self.region_id, RegionSchema())
+        self.postgres = PostgresHelperDbf()
 
     async def run(self):
         await self.cache()
+        dt = self.date_from
+        while dt <= self.date_to:
+            for company in self.companies:
+                await self.revise_company_on_date(company, dt)
+            dt += datetime.timedelta(days=1)
 
     async def revise_company_on_date(self, company: Company, on_date: datetime.date):
         pass
@@ -374,7 +368,29 @@ class Revise:
     async def cache(self):
         """Если сверка запущена сразу по всему региону или за несколько дней, то чтобы не лазать в базу несколько раз -
         кэшируем записи сразу"""
-        postgres = PostgresHelperDbf()
-        self.dbf_tickets = postgres.get_tickets_by_date_ins(self.date_from, self.date_to, self.companies, self.timezone)
-        self.dbf_documents = postgres.get_documents_by_date_fiscal(self.date_from, self.date_to, self.companies,
-                                                                   self.timezone)
+
+        dbf_company_ids = []
+        for company in self.companies:
+            company_id = await self.postgres.get_company_id_by_inn_kpp(company.inn, company.kpp)
+            dbf_company_ids.append(str(company_id))
+        date_time_from = datetime.datetime(self.date_from.year, self.date_from.month, self.date_from.day)
+        date_time_to = datetime.datetime(self.date_to.year, self.date_to.month, self.date_to.day)
+        company_ids_str = f"({', '.join(dbf_company_ids)})"
+        if self.need_tickets:
+            self.dbf_tickets = await self.postgres.get_tickets_by_date_ins(date_time_from, date_time_to, company_ids_str)
+            self.asuop_tickets = await sources_cache_tickets(date_time_from, date_time_to)
+            self.missed_tickets = self.asuop_tickets.difference(self.dbf_tickets)
+            self.additional_tickets = self.dbf_tickets.difference(self.asuop_tickets)
+            if len(self.missed_tickets) + len(self.additional_tickets) > 0:
+                print("Bug")
+        if self.need_documents:
+            self.dbf_documents = await self.postgres.get_documents_by_date_fiscal(date_time_to, date_time_to,
+                                                                                  company_ids_str)
+            self.ofd_documents = set()
+
+    async def init(self):
+        for party_id in self.companies_party_id:
+            company = self.redis.get_entity(party_id, CompanySchema())
+            if not company:
+                return f"Компания с party_id {party_id} не существует"
+            self.companies.add(company)

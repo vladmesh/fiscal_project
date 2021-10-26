@@ -2,7 +2,7 @@ from marshmallow import Schema, validate, fields, post_load, ValidationError
 from marshmallow_enum import EnumField
 
 from core.entities.Enums import Vat, Tax, PaymentType, DocumentType
-from core.entities.entities import Ofd, InstallPlace, Company, Cashbox, Region, Ticket, Document
+from core.entities.entities import Ofd, InstallPlace, Company, Cashbox,  Ticket, Document
 
 
 class IntOrNone(fields.Field):
@@ -53,15 +53,15 @@ class CompanySchema(EntitySchema):
     key = 'companies'
     model_class = Company
     id = fields.String()
-    inn = fields.String(validate=validate.Length(10))
-    kpp = fields.String(validate=validate.Length(9))
+    inn = fields.String(validate=validate.Length(10), required=True)
+    kpp = fields.String(validate=validate.Length(9), required=True)
     name = fields.String(validate=validate.Length(max=50))
     full_name = fields.String()
-    region = fields.String(validate=validate.Length(max=4))
+    timezone = fields.String(validate=validate.Length(max=30), required=True)
     payment_place = fields.String(validate=validate.Length(max=25))
     authorized_person_name = fields.String(validate=validate.Length(max=80))
     agent_agent = fields.Integer(validate=validate.Range(min=0, max=1))
-    tax = fields.Integer(validate=validate.Range(min=0, max=2))
+    tax = fields.String(validate=validate.Length(min=3, max=9), required=True)
     provider_name = fields.String()
     provider_phone = fields.String()
     provider_inn = fields.String()
@@ -82,14 +82,6 @@ class CashboxSchema(EntitySchema):
     ofd_inn = fields.String(validate=validate.Length(10))
 
 
-class RegionSchema(EntitySchema):
-    key = 'regions'
-    model_class = Region
-    id = fields.String(validate=validate.Length(max=5))
-    timezone = fields.String(validate=validate.Length(max=35))
-    ip = fields.String(validate=validate.Regexp(r'^((25[0-5]|(2[0-4]|1\d|[1-9]|)\d)(\.(?!$)|$)){4}$'))
-
-
 class TicketSchema(EntitySchema):
     key = 'tickets'
     model_class = Ticket
@@ -97,8 +89,8 @@ class TicketSchema(EntitySchema):
     asuop_id = fields.String()
     ticket_series = fields.String()
     ticket_number = fields.String()
-    date_ins = fields.DateTime(format="%Y-%m-%d %H:%M:%S")
-    date_trip = fields.DateTime(format="%Y-%m-%d %H:%M:%S")
+    date_ins = fields.DateTime(format="%Y-%m-%dT%H:%M:%S")
+    date_trip = fields.DateTime(format="%Y-%m-%dT%H:%M:%S")
     price = fields.Integer()
     vat = EnumField(Vat)
     tax = EnumField(Tax)
@@ -112,9 +104,18 @@ class DocumentSchema(EntitySchema):
     fiscal_storage_number = fields.Integer()
     fiscal_number = fields.Integer()
     fiscal_sign = fields.Integer()
-    fiscal_date = fields.DateTime(format="%Y-%m-%d %H:%M:%S")
+    fiscal_date = fields.DateTime(format="%Y-%m-%dT%H:%M:%S")
     ticket_id = fields.Integer()
     document_type = EnumField(DocumentType)
+    session_num = fields.Integer()
+    num_in_session = fields.Integer()
+    company_id = fields.String()
+    tax = EnumField(Tax)
+    vat = EnumField(Vat)
+    payment_type = EnumField(PaymentType)
+    price = fields.Integer()
+    cashbox_id = fields.Integer()
+    additional_prop = fields.String(validate=validate.Length(max=16))
 
 
 class CashboxListSchema(Schema):

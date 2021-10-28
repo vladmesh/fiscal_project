@@ -141,6 +141,7 @@ class SourceSettings:
     password: str
     query_new_tickets: str
     query_revise: str
+    query_by_id: str
 
 
 @dataclass

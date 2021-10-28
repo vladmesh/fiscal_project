@@ -15,6 +15,7 @@ class SourceSettingsSchema(Schema):
     password = fields.String()
     query_new_tickets = fields.String()
     query_revise = fields.String()
+    query_by_id = fields.String()
 
     @post_load
     def make_model(self, data, **kwargs):

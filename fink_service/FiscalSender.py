@@ -1,7 +1,7 @@
 import asyncio
 import logging
 
-from core.entities.Ticket import Ticket
+
 
 
 class FiscalSender:

@@ -77,6 +77,8 @@ class ReviseTicket:
         self.date_trip = change_timezone(local_dt_from_ax, timezone, 'utc')
         local_dt_from_terminal = change_timezone(trans_date_time, 'utc', timezone)
         self.ticket_series = local_dt_from_terminal.strftime("%d%m%Y%H%M%S") + f"-{tid}"
+        if local_dt_from_terminal != local_dt_from_ax:
+            pass  # TODO рассылка предупреждений
 
     def init_from_mysql_transaction(self, record):
         self.id = record['record_id']

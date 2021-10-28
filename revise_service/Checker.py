@@ -378,6 +378,7 @@ class Revise:
         company_ids_str = f"({', '.join(dbf_company_ids)})"
         if self.need_tickets:
             self.dbf_tickets = await self.postgres.get_tickets_by_date_ins(date_time_from, date_time_to, company_ids_str)
+            # TODO  Из источников тоже бы с учётом компаний тянуть
             self.asuop_tickets = await sources_cache_tickets(date_time_from, date_time_to)
             self.missed_tickets = self.asuop_tickets.difference(self.dbf_tickets)
             self.additional_tickets = self.dbf_tickets.difference(self.asuop_tickets)
@@ -390,7 +391,7 @@ class Revise:
 
     async def init(self):
         for party_id in self.companies_party_id:
-            company = self.redis.get_entity(party_id, CompanySchema())
+            company = await self.redis.get_entity(party_id, CompanySchema())
             if not company:
                 return f"Компания с party_id {party_id} не существует"
             self.companies.add(company)

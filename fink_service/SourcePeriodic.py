@@ -6,9 +6,7 @@ from abc import abstractmethod
 from fink_service.DocumentChecker import DocumentChecker
 from FiscalSender import FiscalSender
 from core.asyncdb import OracleHelper
-from core.asyncdb import FinkHelper, SettingsHelper
-from core.entities.Ticket import Ticket
-from core.entities import SourceSettings
+
 import datetime as dt
 
 from core.utils import change_timezone

@@ -57,6 +57,10 @@ class SourceHelper(ABC):
     async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime) -> set:
         return set()
 
+    @abstractmethod
+    async def get_new_tickets(self) -> set:
+        return set()
+
     def __init__(self, settings: SourceSettings):
         self.settings = settings
 
@@ -113,7 +117,7 @@ class SourceHelperMsSqlTrans(SourceHelper):
 
     def __init__(self, local_settings: SourceSettings):
         self.mssql_helper = MSSql(local_settings.address, local_settings.database_name, local_settings.login,
-                                  local_settings.password)
+                                  local_settings.password, False)
         SourceHelper.__init__(self, local_settings)
 
     async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime) -> set:
@@ -130,15 +134,21 @@ class SourceHelperMsSqlTrans(SourceHelper):
                     # костыль для сверки старых транзакций по Нкз
                     ticket.inn = '7819027463'
                     ticket.kpp = '425345001'
+            answer.add(row)
         return answer
 
-
+class SourceHelperOracleASUOP(SourceHelper):
+    """"""
 def construct(asuop_settings: SourceSettings) -> SourceHelper:
     if asuop_settings.type == SourceType.MSSQL_BUL:
         return SourceHelperMsSqlAxBUL(asuop_settings)
     if asuop_settings.type == SourceType.MySql:
         return SourceMysqlHelper(asuop_settings)
-    raise Exception(f"Обработчик для типа источника {asuop_settings.type} не реализован")
+    if asuop_settings.type == SourceType.MSSQL_Trans:
+        return None #SourceHelperMsSqlTrans(asuop_settings)
+    if asuop_settings.type == SourceType.Oracle_ASUOP:
+
+    #raise Exception(f"Обработчик для типа источника {asuop_settings.type} не реализован")
 
 
 async def sources_cache_tickets(utc_date_from: dt.datetime, utc_date_to: dt.datetime) -> set:
@@ -147,5 +157,6 @@ async def sources_cache_tickets(utc_date_from: dt.datetime, utc_date_to: dt.date
     asuop_settings_list = await webax.get_sources_settings()
     for asuop_settings in asuop_settings_list:
         asoup_helper = construct(asuop_settings)
-        tickets = tickets.union(await asoup_helper.get_tickets_on_date(utc_date_from, utc_date_to))
+        if asoup_helper:
+            tickets = tickets.union(await asoup_helper.get_tickets_on_date(utc_date_from, utc_date_to))
     return tickets

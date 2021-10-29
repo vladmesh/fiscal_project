@@ -105,3 +105,14 @@ class WebaxHelper:
                 action_data = answer_json['ActionData'].replace("\n", '')
                 request_data = request_schema.loads(action_data)
                 return request_data['source_settings']
+
+
+    def get_asuop_settings(self, companies: list):
+        request = WebaxRequestGetAsuopSettings(self.get_asuop_settings_uid, companies)
+        async with aiohttp.ClientSession() as session:
+            async with session.post(self.url, json=request.__dict__) as resp:
+                answer_json = await resp.json(content_type=None)
+                request_schema = GetSourceSettingsSchema()
+                action_data = answer_json['ActionData'].replace("\n", '')
+                request_data = request_schema.loads(action_data)
+                return request_data['source_settings']

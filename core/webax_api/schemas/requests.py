@@ -27,3 +27,9 @@ class GetInnKppByRoute(WebaxRequest):
 class WebaxRequestGetSourceSettings(WebaxRequest):
     def __init__(self, uid):
         WebaxRequest.__init__(self, uid)
+
+
+class WebaxRequestGetAsuopSettings(WebaxRequest):
+    def __init__(self, uid, companies):
+        self.companies = companies
+        WebaxRequest.__init__(self, uid)

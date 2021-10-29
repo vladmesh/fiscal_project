@@ -1,6 +1,7 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, post_load
 
-from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema
+from core.entities.entities import AsuopSettings
+from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, CompanyAsuopSchema
 from core.webax_api.schemas.inner import SourceSettingsSchema
 
 
@@ -13,3 +14,11 @@ class UpdateDictionariesSchema(Schema):
 
 class GetSourceSettingsSchema(Schema):
     source_settings = fields.List(fields.Nested(SourceSettingsSchema))
+
+
+class GetAsuopSettingsSchema(Schema):
+    companies = fields.List(fields.Nested(CompanyAsuopSchema))
+
+    @post_load
+    def make_model(self, data, **kwargs):
+        return AsuopSettings(**data)

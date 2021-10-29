@@ -168,6 +168,7 @@ class SourceHelperOracleASUOP(SourceHelper):
         divisions_str = ','.join(divisions_list)
         divisions_str = f"({divisions_str})"
         command = self.settings.query_revise.replace('{start}', f'{date_from}').replace('{end}', f'{date_to}')
+        command = command.replace('{comp}', divisions_str)
 
         answer = set()
         rows = await self.oracle_helper.execute(command)
@@ -178,7 +179,11 @@ class SourceHelperOracleASUOP(SourceHelper):
         return answer
 
     def __init__(self, settings: SourceSettings):
-        self.oracle_helper = OracleHelper('')
+        port_str = ''
+        if settings.port:
+            port_str = ':'+str(settings.port)
+        self.oracle_helper = OracleHelper(f'{settings.login}/{settings.password}@{settings.address}{port_str}'
+                                          f'/{settings.database_name}')
         SourceHelper.__init__(self, settings)
 
 

@@ -5,7 +5,7 @@ from fiscal_face.aiohttp_client import FiscalSender
 from fiscal_face.server.ax.schemas.requests import CashboxRegisterSchema, CloseFNSchema
 import aiohttp.web
 
-from fiscal_service.schemas.responds import CashboxDataAnswerSchema, TerminalErrorCodeSchema
+from fiscal_service.server.schemas import CashboxDataAnswerSchema, TerminalErrorCodeSchema
 
 
 async def reg_cashbox(request):

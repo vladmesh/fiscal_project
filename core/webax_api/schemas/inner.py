@@ -1,7 +1,8 @@
 from marshmallow import Schema, fields, validate, post_load
 from marshmallow_enum import EnumField
 
-from core.entities.entities import SourceSettings
+from core.entities.Enums import Tax, Vat
+from core.entities.entities import SourceSettings, Route, Division, CompanyAsuop
 from revise_service.entities import SourceType
 
 
@@ -20,3 +21,34 @@ class SourceSettingsSchema(Schema):
     @post_load
     def make_model(self, data, **kwargs):
         return SourceSettings(**data)
+
+
+class RouteSchema(Schema):
+    route_num = fields.String()
+    vat = EnumField(Vat)
+
+    @post_load
+    def make_model(self, data, **kwargs):
+        return Route(**data)
+
+
+class DivisionSchema(Schema):
+    id = fields.Integer()
+    source_id = fields.String()
+    routes: fields.List(fields.Nested(RouteSchema))
+
+    @post_load
+    def make_model(self, data, **kwargs):
+        return Division(**data)
+
+
+class CompanyAsuopSchema(Schema):
+    id = fields.String()
+    inn = fields.String()
+    kpp = fields.String()
+    tax = EnumField(Tax)
+    divisions = fields.List(fields.Nested(DivisionSchema))
+
+    @post_load
+    def make_model(self, data, **kwargs):
+        return CompanyAsuop(**data)

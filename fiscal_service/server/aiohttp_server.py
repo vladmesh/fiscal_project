@@ -1,7 +1,7 @@
 import aiohttp.web
 from aiomisc.service.aiohttp import AIOHTTPService
 
-from fiscal_service.urls import urls
+from fiscal_service.server.urls import urls
 
 
 class REST(AIOHTTPService):

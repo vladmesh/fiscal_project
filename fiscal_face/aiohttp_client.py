@@ -1,10 +1,9 @@
 import aiohttp
-import asyncio
 
 from core.entities.entities import Cashbox, Ofd, Company, InstallPlace
-from fiscal_service.schemas.requests import GetCashboxDataRequestSchema, GetCashboxDataRequest, \
+from fiscal_service.server.schemas import GetCashboxDataRequestSchema, GetCashboxDataRequest, \
     CashboxRegisterRequestSchema, CashboxRegisterRequest
-from fiscal_service.schemas.responds import CashboxDataAnswerSchema, TerminalErrorCodeSchema
+from fiscal_service.server.schemas import CashboxDataAnswerSchema, TerminalErrorCodeSchema
 
 
 class FiscalSender:

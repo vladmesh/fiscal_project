@@ -152,6 +152,7 @@ class Route:
 @dataclass
 class Division:
     id: int
+    source_id: str
     routes: List[Route]
 
 
@@ -163,3 +164,19 @@ class CompanyAsuop:
     kpp: str
     tax: Tax
     divisions: List[Division]
+
+
+class AsuopSettings:
+    """Класс для настроек выгрузки из АСУОПа Оркал"""
+
+    def __init__(self, companies: List[CompanyAsuop]):
+        self.companies = companies
+
+    def get_divisions(self, source_id: str) -> list:
+        answer = []
+        for company in self.companies:
+            for division in company.divisions:
+                if division.source_id == source_id:
+                    answer.append(division)
+
+        return answer

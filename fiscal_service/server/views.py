@@ -1,9 +1,7 @@
-from core.entities.entities import Cashbox
-from core.redis_api.RedisApi import RedisApi
 from fiscal_service.CashboxSender import CashboxSender
-from fiscal_service.schemas.requests import GetCashboxDataRequestSchema, GetCashboxDataRequest, \
+from fiscal_service.server.schemas.requests import GetCashboxDataRequestSchema, GetCashboxDataRequest, \
     CashboxRegisterRequestSchema, CashboxRegisterRequest, CloseCashboxRequestSchema
-from fiscal_service.schemas.responds import GetCashboxDataAnswer, CashboxDataAnswerSchema, \
+from fiscal_service.server.schemas.responds import CashboxDataAnswerSchema, \
     init_answer_from_status_answers, TerminalErrorCodeSchema
 
 import aiohttp.web

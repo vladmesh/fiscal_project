@@ -2,7 +2,7 @@ from marshmallow import Schema, validate, fields, post_load, ValidationError
 from marshmallow_enum import EnumField
 
 from core.entities.Enums import Vat, Tax, PaymentType, DocumentType
-from core.entities.entities import Ofd, InstallPlace, Company, Cashbox,  Ticket, Document
+from core.entities.entities import Ofd, InstallPlace, Company, Cashbox, Ticket, Document, Route, Division, CompanyAsuop
 
 
 class IntOrNone(fields.Field):
@@ -124,3 +124,31 @@ class CashboxListSchema(Schema):
 
 class CompanyListSchema(Schema):
     companies = fields.Dict(fields.String, fields.Nested(CompanySchema))
+
+
+class RouteSchema(EntitySchema):
+    key = 'routes'
+    model_class = Route
+    id = fields.String()
+    vat = EnumField(Vat)
+
+
+class DivisionSchema(EntitySchema):
+    key = 'divisions'
+    model_class = Division
+    party_id = fields.String()
+    routes = fields.List(fields.Nested(RouteSchema))
+
+
+class CompanyAsuopSchema(EntitySchema):
+    key = 'asuop_companies'
+    model_class = CompanyAsuop
+    id = fields.String()
+    inn = fields.String(validate=validate.Length(max=12, min=10), required=True)
+    kpp = fields.String(validate=validate.Length(9), required=True)
+    tax = EnumField(Tax)
+    divisions = fields.List(fields.Nested(DivisionSchema))
+
+
+class CompanyListAsuopSchema(Schema):
+    companies = fields.List(fields.Nested(CompanyAsuopSchema))

@@ -92,7 +92,6 @@ class Ofd:
         self.email = email
 
 
-
 @dataclass
 class Ticket:
     ticket_series: str = None
@@ -154,3 +153,13 @@ class Route:
 class Division:
     id: int
     routes: List[Route]
+
+
+@dataclass
+class CompanyAsuop:
+    """Класс для хранения настроек АСУОП по компании"""
+    id: str
+    inn: str
+    kpp: str
+    tax: Tax
+    divisions: List[Division]

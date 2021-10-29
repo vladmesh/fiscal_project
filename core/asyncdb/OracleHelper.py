@@ -1,5 +1,9 @@
 import cx_Oracle
+import asyncio
+import concurrent.futures
 
+# TODO Тут бы тоже нужно какую-то асинхронную либу, но у меня не получилось подключиться ни через cx_Oracle_async,
+# TODO ни через aioodbc
 
 class OracleHelper:
     def __init__(self, conn_string):
@@ -30,3 +34,16 @@ class OracleHelper:
         if has_result:
             return [dict(zip(col_names, record)) for record in records]
 
+
+async def main():
+    loop = asyncio.get_running_loop()
+    helper = OracleHelper('fiscal/_si3dgzp4cjxb6d07t891rv3@10.0.20.254/TRCARD')
+
+    # 2. Run in a custom thread pool:
+    with concurrent.futures.ThreadPoolExecutor() as pool:
+        result = await loop.run_in_executor(
+            pool, helper.execute, "select 1;")
+        print('custom thread pool', result)
+
+
+asyncio.run(main())

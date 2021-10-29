@@ -378,10 +378,7 @@ class Revise:
         company_ids_str = f"({', '.join(dbf_company_ids)})"
         if self.need_tickets:
             self.dbf_tickets = await self.postgres.get_tickets_by_date_ins(date_time_from, date_time_to, company_ids_str)
-            # TODO  Из источников тоже бы с учётом компаний тянуть
-            self.asuop_tickets = await sources_cache_tickets(date_time_from, date_time_to)
-            self.missed_tickets = self.asuop_tickets.difference(self.dbf_tickets)
-            self.additional_tickets = self.dbf_tickets.difference(self.asuop_tickets)
+            self.asuop_tickets = await sources_cache_tickets(date_time_from, date_time_to, self.companies)
             if len(self.missed_tickets) + len(self.additional_tickets) > 0:
                 print("Bug")
         if self.need_documents:

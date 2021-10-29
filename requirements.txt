@@ -5,7 +5,7 @@ attrs==21.2.0
 chardet==4.0.0
 colorama==0.4.4
 colorlog==6.4.1
-dataclasses~=0.8
+dataclasses
 idna==3.2
 multidict==5.1.0
 typing-extensions==3.10.0.2

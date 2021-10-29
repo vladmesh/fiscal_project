@@ -5,7 +5,7 @@ from core.utils import strip
 
 
 class MSSql:
-    def __init__(self, server, database, user, password, is_ax=True):
+    def __init__(self, server, database, user, password):
         self.database = database
         self.user = user
         self.password = password
@@ -13,6 +13,9 @@ class MSSql:
         self.cursor = None
         self.loop = None
         if '\\' in server:
+            # unixODBC не умеет распознавать имена инстансов, поэтому лезем каждый раз и тянем текущий порт
+            # TODO  тут хорошо хотя бы научить по имени получать ip, так как ip может поменяться.
+            # TODO для этого нужно разобраться, как внутрь контейнера пробросить информацию с ДНС сервера внутри сети
             pass
             servername = server.split('\\')[0].upper()
             domen = server.split('\\')[1].upper()

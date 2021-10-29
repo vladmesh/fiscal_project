@@ -44,17 +44,17 @@ class ReviseTicket:
         self.tax = record['tax']
         self.price = record['price']
 
-    def init_from_oracle(self, record, timezone):
+    def init_from_oracle(self, record):
         self.id = record['ID']
         self.ticket_series = record['TICKETSERIES']
         self.ticket_number = str(record['TICKETNUMBER'])
         self.payment_type = int(record['PAYMENTTYPE'])
-        self.date_ins = change_timezone(record['INS_DATE'], timezone, 'utc')
-        self.date_trip = change_timezone(record['DATETRIP'], timezone, 'utc')
+        self.date_ins = change_timezone(record['INS_DATE'], 'utc', 'utc')
+        self.date_trip = change_timezone(record['DATETRIP'], 'utc', 'utc')
         self.price = int(record['PRICE'])
 
     def init_from_view_transaction(self, record):
-        timezone = 'Asia/Novokuznetsk' if record['dataAreaId'] == 'nkz' else 'Europe/Moscow'  # TODO вынести в
+        timezone = 'Asia/Novokuznetsk' if record['axDataAreaId'] == 'nkz' else 'Europe/Moscow'  # TODO вынести в
         # какую-нибудь настройку
         self.id = record['axRecId']
         trans_date_time = record['rrTransDateTimeUtc0']
@@ -71,9 +71,13 @@ class ReviseTicket:
         self.inn = record['axINN_RUCalc4Fiscal']
         self.kpp = record['axKPPU_RUCalc4Fiscal']
         self.date_ins = record['rrRegDateTimeUtc0']
-        release_date = datetime.strptime(record['axDateRelease'], '%Y-%m-%d')
+        date_release = record['axDateRelease']
+        # тут небольшой костыль, из вьюхи возвращается то дата, то строка, можно у Димы попросить унифицировать
+        if type(date_release) == str:
+            date_release = datetime.strptime(record['axDateRelease'], '%Y-%m-%d')
+        date_release = datetime(date_release.year, date_release.month, date_release.day)
         time_abs = record['axTimeAbs']
-        local_dt_from_ax = release_date + timedelta(seconds=time_abs)
+        local_dt_from_ax = date_release + timedelta(seconds=time_abs)
         self.date_trip = change_timezone(local_dt_from_ax, timezone, 'utc')
         local_dt_from_terminal = change_timezone(trans_date_time, 'utc', timezone)
         self.ticket_series = local_dt_from_terminal.strftime("%d%m%Y%H%M%S") + f"-{tid}"

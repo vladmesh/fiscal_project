@@ -1,4 +1,3 @@
-import asyncio
 import datetime
 
 # class CompanyChecker:
@@ -59,10 +58,7 @@ import datetime
 #             self.answer += "Некорректный ответ от ОФД. "
 #             return
 #
-#         self.amount_documents_ofd_cash = int(sum(x.price for x in ofd_documents if x.payment_type == 1) / 100)
-#         self.amount_documents_ofd_cashless = int(sum(x.price for x in ofd_documents if x.payment_type == 2) / 100)
-#         self.amount_documents_db_cash = int(sum(x.price for x in dbf_documents if x.payment_type == 1) / 100)
-#         self.amount_documents_db_cashless = int(sum(x.price for x in dbf_documents if x.payment_type == 2) / 100)
+#         self.
 #         self.message += f"<pre>\t\tСумма фискализированных наличных в ОФД - {self.amount_documents_ofd_cash}</pre><br>"
 #         self.message += f"<pre>\t\tСумма наличных по дате фискализации в dbfiscal - " \
 #                         f"{self.amount_documents_db_cash}</pre><br>"
@@ -131,15 +127,7 @@ import datetime
 #             self.answer = str(e)
 #         self.send_json()
 #
-#     def send_json(self):
-#         wh = WebaxHelper()
-#         wh.update_revise_data(self.settings.server_name, self.company, self.additional_tickets, self.missed_tickets,
-#                               self.additional_documents, self.missed_documents, self.has_error,
-#                               self.has_warning, self.date, self.amount_tickets_db_cash, self.amount_tickets_db_cashless,
-#                               self.amount_tickets_asuop_cash, self.amount_tickets_asuop_cashless,
-#                               self.amount_documents_db_cash, self.amount_documents_db_cashless,
-#                               self.amount_documents_ofd_cash, self.amount_documents_ofd_cashless, self.answer,
-#                               self.has_ofd_access)
+#
 #
 #
 # class Checker:
@@ -313,13 +301,16 @@ import datetime
 #             self.missed_documents = self.missed_documents.union(company_checker.missed_documents)
 #             self.additional_tickets = self.additional_tickets.union(company_checker.additional_tickets)
 #             self.additional_documents = self.additional_documents.union(company_checker.additional_documents)
-from core.ASUOP_Helper import sources_cache_tickets
+from core.sources.ASUOP_Helper import sources_cache_tickets
 from core.asyncdb.PostgresHelper import PostgresHelperDbf
 from core.entities.entities import Company
 from core.entities.entity_schemas import CompanySchema
 
 from core.redis_api.RedisApi import RedisApi
+from revise.OFDHelper import OFDHelper
+
 from core.utils import change_timezone
+from core.webax_api.WebaxHelper import WebaxHelper
 
 
 class Revise:
@@ -335,7 +326,7 @@ class Revise:
                  email: str = None):
         self.revise_id = revise_id
         self.date_from = date_from
-        self.date_to = date_to
+        self.date_to = date_to + datetime.timedelta(hours=23, minutes=59, seconds=59)
         self.need_cash = need_cash
         self.need_non_cash = need_non_cash
         self.need_tickets = need_tickets
@@ -346,13 +337,14 @@ class Revise:
         self.dbf_tickets = set()
         self.dbf_documents = set()
         self.asuop_tickets = set()
-        self.ofd_documents = set()
+        self.ofd_documents: set = set()
         self.missed_tickets = set()
         self.additional_tickets = set()
         self.missed_documents = set()
         self.additional_documents = set()
         self.redis = RedisApi()
         self.postgres = PostgresHelperDbf()
+        self.webax = WebaxHelper()
 
     async def run(self):
         await self.cache()
@@ -363,7 +355,49 @@ class Revise:
             dt += datetime.timedelta(days=1)
 
     async def revise_company_on_date(self, company: Company, on_date: datetime.date):
-        pass
+        dt_start = datetime.datetime(on_date.year, on_date.month, on_date.day)
+        dt_end = dt_start + datetime.timedelta(hours=24)
+        dt_start = change_timezone(dt_start, 'UTC', 'UTC')
+        dt_end = change_timezone(dt_end, 'UTC', 'UTC')
+        asuop_tickets = set(x for x in self.asuop_tickets if
+                            x.company_id == company.id and dt_start <= x.date_ins < dt_end) # TODO, неоправданно долго, мб заменить на filter()
+        dbf_tickets = set(
+            x for x in self.dbf_tickets if x.company_id == company.id and dt_start <= x.date_ins < dt_end)
+        ofd_documents = set(
+            x for x in self.ofd_documents if x.company_id == company.id and dt_start <= x.date_fiscal < dt_end)
+        dbf_documents = set(x for x in self.ofd_documents if x.company_id == company.id
+                            and dt_start <= x.date_fiscal < dt_end)
+
+        amount_tickets_asuop_cash = int(sum(x.price for x in asuop_tickets if x.payment_type == 1) / 100)
+        amount_tickets_asuop_cashless = int(sum(x.price for x in asuop_tickets if x.payment_type == 2) / 100)
+        amount_tickets_db_cash = int(sum(x.price for x in dbf_tickets if x.payment_type == 1) / 100)
+        amount_tickets_db_cashless = int(sum(x.price for x in dbf_tickets if x.payment_type == 2) / 100)
+        amount_documents_ofd_cash = int(sum(x.price for x in ofd_documents if x.payment_type == 1) / 100)
+        amount_documents_ofd_cashless = int(sum(x.price for x in ofd_documents if x.payment_type == 2) / 100)
+        amount_documents_db_cash = int(sum(x.price for x in dbf_documents if x.payment_type == 1) / 100)
+        amount_documents_db_cashless = int(sum(x.price for x in dbf_documents if x.payment_type == 2) / 100)
+
+        missed_tickets = asuop_tickets.difference(dbf_tickets)
+        additional_tickets = dbf_tickets.difference(asuop_tickets)
+        missed_documents = ofd_documents.difference(dbf_documents)
+        additional_documents = dbf_documents.difference(ofd_documents)
+        await self.send_json(company, additional_tickets, missed_tickets, additional_documents,
+                             missed_documents, on_date, amount_tickets_db_cash, amount_tickets_db_cashless,
+                             amount_tickets_asuop_cash, amount_tickets_asuop_cashless, amount_documents_db_cash,
+                             amount_documents_db_cashless, amount_documents_ofd_cash, amount_documents_ofd_cashless,
+                             company.answer)
+
+    async def cache_ofd_document(self, date_from, date_to, companies):
+        for company in companies:
+            ofd_documents = None
+            if company.ofd_login and company.ofd_password:
+                ofd_helper = OFDHelper(company.ofd_login, company.ofd_password)
+                if ofd_helper.token:
+                    cashboxes = await self.redis.get_cashboxes(company.id)
+                    ofd_documents = ofd_helper.get_documents(company, date_from, date_to, cashboxes)
+                    self.ofd_documents = self.ofd_documents.union(ofd_documents)
+                if ofd_helper.token is None or ofd_documents is None:
+                    company.answer = 'Не удалось получить доступ в ОФД'
 
     async def cache(self):
         """Если сверка запущена сразу по всему региону или за несколько дней, то чтобы не лазать в базу несколько раз -
@@ -371,20 +405,19 @@ class Revise:
 
         dbf_company_ids = []
         for company in self.companies:
-            company_id = await self.postgres.get_company_id_by_inn_kpp(company.inn, company.kpp)
-            dbf_company_ids.append(str(company_id))
+            company.answer = ''
         date_time_from = datetime.datetime(self.date_from.year, self.date_from.month, self.date_from.day)
-        date_time_to = datetime.datetime(self.date_to.year, self.date_to.month, self.date_to.day)
-        company_ids_str = f"({', '.join(dbf_company_ids)})"
+        date_time_to = datetime.datetime(self.date_to.year, self.date_to.month, self.date_to.day) + \
+                       datetime.timedelta(hours=23, minutes=59, seconds=59)
+
         if self.need_tickets:
-            self.dbf_tickets = await self.postgres.get_tickets_by_date_ins(date_time_from, date_time_to, company_ids_str)
+            self.dbf_tickets = await self.postgres.get_tickets_by_date_ins(date_time_from, date_time_to,
+                                                                           self.companies)
             self.asuop_tickets = await sources_cache_tickets(date_time_from, date_time_to, self.companies)
-            if len(self.missed_tickets) + len(self.additional_tickets) > 0:
-                print("Bug")
         if self.need_documents:
-            self.dbf_documents = await self.postgres.get_documents_by_date_fiscal(date_time_to, date_time_to,
-                                                                                  company_ids_str)
-            self.ofd_documents = set()
+            self.dbf_documents = await self.postgres.get_documents_by_date_fiscal(date_time_from, date_time_to,
+                                                                                  self.companies)
+            await self.cache_ofd_document(date_time_from, date_time_to, self.companies)
 
     async def init(self):
         for party_id in self.companies_party_id:
@@ -392,3 +425,22 @@ class Revise:
             if not company:
                 return f"Компания с party_id {party_id} не существует"
             self.companies.add(company)
+
+    async def send_json(self, company, additional_tickets, missed_tickets, additional_documents, missed_documents,
+                        date, amount_tickets_db_cash, amount_tickets_db_cashless,
+                        amount_tickets_asuop_cash, amount_tickets_asuop_cashless,
+                        amount_documents_db_cash, amount_documents_db_cashless, amount_documents_ofd_cash,
+                        amount_documents_ofd_cashless, answer):
+        has_error = len(missed_documents) + len(missed_tickets) \
+                    + len(additional_documents) + len(additional_tickets) > 0 \
+                    or amount_documents_db_cash != amount_documents_ofd_cash \
+                    or amount_documents_ofd_cashless != amount_documents_db_cashless \
+                    or amount_tickets_asuop_cashless != amount_tickets_db_cashless \
+                    or amount_tickets_asuop_cash != amount_tickets_db_cash
+
+        await self.webax.update_revise_data(self.revise_id, company, additional_tickets, missed_tickets,
+                                            additional_documents, missed_documents, has_error, date,
+                                            amount_tickets_db_cash, amount_tickets_db_cashless,
+                                            amount_tickets_asuop_cash, amount_tickets_asuop_cashless,
+                                            amount_documents_db_cash, amount_documents_db_cashless,
+                                            amount_documents_ofd_cash, amount_documents_ofd_cashless, answer)

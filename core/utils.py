@@ -1,7 +1,9 @@
+import datetime
+
 from dateutil import tz
 
 
-def change_timezone(old_date, timezone_from, timezone_to):
+def change_timezone(old_date, timezone_from, timezone_to) -> datetime.datetime:
     from_zone = tz.gettz(timezone_from)
     to_zone = tz.gettz(timezone_to)
     tmp = old_date.replace(tzinfo=from_zone)

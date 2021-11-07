@@ -3,9 +3,8 @@ from dataclasses import dataclass
 
 import aiohttp.web
 
-from core.asyncdb.PostgresHelper import PostgresAsyncHelper, PostgresHelperTmp
-from fiscal_face.server.atol.schemas.answers import MegapolisAnswerStatus, MegapolisApiAnswerSchema
-from fiscal_face.server.atol.schemas.inner import MegapolisApiErrorType
+from server.atol.schemas.answers import MegapolisAnswerStatus, MegapolisApiAnswerSchema
+from server.atol.schemas.inner import MegapolisApiErrorType
 
 
 @dataclass
@@ -26,8 +25,7 @@ default_descriptions = {MegapolisApiErrorType.WRONG_TOKEN: "Токен неак�
 
 
 class ErrorHandler:
-    def __init__(self):
-        self.postgres_helper = PostgresHelperTmp()
+
 
     async def generate(self, error_type: MegapolisApiErrorType, request, fields_list=None, text=''):
         request = request.decode('utf-8')

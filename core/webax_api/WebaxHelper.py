@@ -6,9 +6,9 @@ import json
 import aiohttp
 
 from core.entities.entities import Company, SourceSettings
-from core.webax_api.schemas.answers import UpdateDictionariesSchema, GetSourceSettingsSchema
+from core.webax_api.schemas.answers import UpdateDictionariesSchema, GetSourceSettingsSchema, GetAsuopSettingsSchema
 from core.webax_api.schemas.requests import UpdateStatusRequest, GetInnKppByPartyIdRequest, WebaxRequest, \
-    GetInnKppByRoute, WebaxRequestGetSourceSettings
+    GetInnKppByRoute, WebaxRequestGetSourceSettings, WebaxRequestGetAsuopSettings
 
 
 class WebaxHelper:
@@ -20,24 +20,24 @@ class WebaxHelper:
         self.get_inn_kpp_by_routeId_uid = 'ab4d7720-35b2-4f22-8665-906f9894deba'
         self.get_dictionaries_uid = 'dbdea34a-cdab-4f51-8964-2811e3c0a417'
         self.get_source_settings_uid = '76810788-73bc-454e-bb8c-dc07a94e6b0a'
+        self.get_asuop_settings_uid = '4a695995-5251-418e-80de-778c8e6b1a56'
 
-    def update_revise_data(self, region_id, company: Company, additional_tickets, missed_tickets, additional_docs,
-                           missed_docs, has_error: bool, has_warning: bool, date: datetime.date,
+    async def update_revise_data(self, revise_id, company: Company, additional_tickets, missed_tickets, additional_docs,
+                           missed_docs, has_error: bool, date: datetime.date,
                            amount_tickets_db_cash, amount_tickets_db_cashless,
                            amount_tickets_asuop_cash, amount_tickets_asuop_cashless,
                            amount_documents_db_cash, amount_documents_db_cashless,
-                           amount_documents_ofd_cash, amount_documents_ofd_cashless, answer,
-                           has_ofd_access
+                           amount_documents_ofd_cash, amount_documents_ofd_cashless, answer
                            ):
+        # TODO переписать через маршмэллоу
         request = {'additional_tickets': [x.__dict__ for x in additional_tickets],
                    'missed_tickets': [x.__dict__ for x in missed_tickets],
                    'additional_documents': [x.__dict__ for x in additional_docs],
                    'missed_documents': [x.__dict__ for x in missed_docs],
+                   'revise_id': revise_id,
                    'inn': company.inn,
                    'kpp': company.kpp,
-                   'region': region_id,
                    'has_error': has_error,
-                   'has_warning': has_warning,
                    'date': date,
                    'amount_tickets_db_cash': amount_tickets_db_cash,
                    'amount_tickets_db_cashless': amount_tickets_db_cashless,
@@ -48,11 +48,12 @@ class WebaxHelper:
                    'amount_documents_ofd_cash': amount_documents_ofd_cash,
                    'amount_documents_ofd_cashless': amount_documents_ofd_cashless,
                    'answer': answer,
-                   'has_ofd_access': has_ofd_access,
                    'action': self.update_revise_data_uid}
         data = json.dumps(request, default=str)
-        answer = requests.post(url=self.url, data=data)
-        return answer.status_code == 200
+        async with aiohttp.ClientSession() as session:
+            async with session.post(self.url, data=data) as resp:
+                answer_json = await resp.json(content_type=None)
+        return ''
 
     def update_fiscal_status(self, recid: int, status: int):
         request = UpdateStatusRequest(recid, status, self.update_status_uid)
@@ -106,13 +107,12 @@ class WebaxHelper:
                 request_data = request_schema.loads(action_data)
                 return request_data['source_settings']
 
-
-    def get_asuop_settings(self, companies: list):
+    async def get_asuop_settings(self, companies: list):
         request = WebaxRequestGetAsuopSettings(self.get_asuop_settings_uid, companies)
         async with aiohttp.ClientSession() as session:
             async with session.post(self.url, json=request.__dict__) as resp:
-                answer_json = await resp.json(content_type=None)
-                request_schema = GetSourceSettingsSchema()
-                action_data = answer_json['ActionData'].replace("\n", '')
+                answer_json = await resp.json(content_type=None, encoding='utf-8')
+                request_schema = GetAsuopSettingsSchema()
+                action_data = answer_json['ActionData']
                 request_data = request_schema.loads(action_data)
-                return request_data['source_settings']
+                return request_data

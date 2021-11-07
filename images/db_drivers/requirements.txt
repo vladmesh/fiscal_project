@@ -1,0 +1,6 @@
+psycopg2-binary
+cx_oracle
+aiopg~=1.3.2
+sqlserverport~=1.0.1
+aioodbc~=0.3.3
+aiomysql~=0.0.21

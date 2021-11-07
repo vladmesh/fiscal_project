@@ -3,7 +3,7 @@ from marshmallow_enum import EnumField
 from enum import Enum
 
 from core.entities.Enums import DocumentType
-from fiscal_face.server.atol.schemas.inner import ErrorSchema
+from server.atol.schemas.inner import ErrorSchema
 
 
 class MegapolisAnswerStatus(Enum):

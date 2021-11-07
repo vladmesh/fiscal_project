@@ -1,10 +1,18 @@
 import datetime
-from typing import List
+from enum import Enum
+from typing import List, Dict
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from core.entities.Enums import PaymentType, Tax, Vat, DocumentType
-from revise_service.entities import SourceType
+
+
+class SourceType(Enum):
+    Oracle_ASUOP = 1
+    MySql = 2
+    MSSQL_BUL = 3
+    MSSQL_Trans = 4
+    AxValidatorTrans = 5
 
 
 class Cashbox:
@@ -47,7 +55,9 @@ class Company:
                  additional_field_meaning=None,
                  additional_field_value=None,
                  timezone=None,
-                 divisions=None
+                 divisions=None,
+                 ofd_login=None,
+                 ofd_password=None
                  ):
         self.id = id
         self.inn = inn
@@ -66,13 +76,8 @@ class Company:
         self.additional_field_meaning = additional_field_meaning
         self.additional_field_value = additional_field_value
         self.divisions = divisions
-
-    def init_from_fink(self, record):
-        self.id = record['companyid']
-        self.inn = record['companyinn']
-        self.kpp = record['companykpp']
-        self.division = record['divisionid']
-        self.tax = record['tax']
+        self.ofd_login = ofd_login
+        self.ofd_password = ofd_password
 
 
 class InstallPlace:
@@ -138,6 +143,7 @@ class SourceSettings:
     database_name: str
     login: str
     password: str
+    timezone: str
     query_new_tickets: str
     query_revise: str
     query_by_id: str
@@ -163,13 +169,15 @@ class CompanyAsuop:
     inn: str
     kpp: str
     tax: Tax
-    divisions: List[Division]
+    divisions: List[Division] = field(default_factory=list)
 
 
 class AsuopSettings:
     """Класс для настроек выгрузки из АСУОПа Оркал"""
 
-    def __init__(self, companies: List[CompanyAsuop]):
+    def __init__(self, companies: List[CompanyAsuop] = None):
+        if companies is None:
+            companies = []
         self.companies = companies
 
     def get_divisions(self, source_id: str) -> list:
@@ -177,6 +185,25 @@ class AsuopSettings:
         for company in self.companies:
             for division in company.divisions:
                 if division.source_id == source_id:
-                    answer.append(division)
+                    answer.append(str(division.id))
 
         return answer
+
+    def get_divisions_to_company_dict(self, source_id: str) -> Dict[int, CompanyAsuop]:
+        answer = dict()
+        for company in self.companies:
+            for division in company.divisions:
+                if division.source_id == source_id:
+                    answer[division.id] = company
+        return answer
+
+    def get_routes_to_vat_dict(self, source_id: str) -> dict:
+        answer = dict()
+        for company in self.companies:
+            for division in company.divisions:
+                if division.source_id == source_id:
+                    for route in division.routes:
+                        answer[route.route_num] = route.vat
+
+        return answer
+

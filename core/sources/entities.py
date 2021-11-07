@@ -1,15 +1,6 @@
 from datetime import datetime, timedelta
 from core.utils import change_timezone
-from enum import Enum
 from dateutil import tz
-
-
-class SourceType(Enum):
-    Oracle_ASUOP = 1
-    MySql = 2
-    MSSQL_BUL = 3
-    MSSQL_Trans = 4
-    AxValidatorTrans = 5
 
 
 class ReviseTicket:
@@ -44,13 +35,13 @@ class ReviseTicket:
         self.tax = record['tax']
         self.price = record['price']
 
-    def init_from_oracle(self, record):
+    def init_from_oracle(self, record, timezone):
         self.id = record['ID']
         self.ticket_series = record['TICKETSERIES']
         self.ticket_number = str(record['TICKETNUMBER'])
         self.payment_type = int(record['PAYMENTTYPE'])
-        self.date_ins = change_timezone(record['INS_DATE'], 'utc', 'utc')
-        self.date_trip = change_timezone(record['DATETRIP'], 'utc', 'utc')
+        self.date_ins = change_timezone(record['INS_DATE'], timezone, 'UTC')
+        self.date_trip = change_timezone(record['DATETRIP'], timezone, 'UTC')
         self.price = int(record['PRICE'])
 
     def init_from_view_transaction(self, record):
@@ -71,6 +62,7 @@ class ReviseTicket:
         self.inn = record['axINN_RUCalc4Fiscal']
         self.kpp = record['axKPPU_RUCalc4Fiscal']
         self.date_ins = record['rrRegDateTimeUtc0']
+        self.date_ins = change_timezone(self.date_ins, 'UTC', 'UTC')
         date_release = record['axDateRelease']
         # тут небольшой костыль, из вьюхи возвращается то дата, то строка, можно у Димы попросить унифицировать
         if type(date_release) == str:
@@ -78,8 +70,8 @@ class ReviseTicket:
         date_release = datetime(date_release.year, date_release.month, date_release.day)
         time_abs = record['axTimeAbs']
         local_dt_from_ax = date_release + timedelta(seconds=time_abs)
-        self.date_trip = change_timezone(local_dt_from_ax, timezone, 'utc')
-        local_dt_from_terminal = change_timezone(trans_date_time, 'utc', timezone)
+        self.date_trip = change_timezone(local_dt_from_ax, timezone, 'UTC')
+        local_dt_from_terminal = change_timezone(trans_date_time, 'UTC', timezone)
         self.ticket_series = local_dt_from_terminal.strftime("%d%m%Y%H%M%S") + f"-{tid}"
         if local_dt_from_terminal != local_dt_from_ax:
             pass  # TODO рассылка предупреждений

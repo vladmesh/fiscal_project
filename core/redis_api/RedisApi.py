@@ -1,8 +1,9 @@
 import asyncio
+from typing import List
 
 import aioredis
 
-from core.entities.entities import Company
+from core.entities.entities import Company, Cashbox
 from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema
 from core.webax_api.WebaxHelper import WebaxHelper
 
@@ -19,8 +20,14 @@ class RedisApi:
         tickets = await self.redis.get("tickets")
         return tickets
 
-    async def get_cashboxes(self):
-        pass
+    async def get_cashboxes(self, company_id=None) -> list:
+        answer = []
+        keys = await self.redis.hkeys(CashboxSchema.key)
+        for key in [str(x) for x in keys]:
+            cashbox: Cashbox = await self.get_entity(key, CashboxSchema())
+            if cashbox.company_id == company_id or company_id is None:
+                answer.append(cashbox)
+        return answer
 
     async def update_data_records(self, records: list, key: str, schema):
         for record in records:
@@ -49,3 +56,11 @@ class RedisApi:
     async def get_cashbox_for_ticket(self, ticket):
         free_cashbox = await self.redis.hget(ticket.company_id, 1)
         return free_cashbox
+
+    def get_companies(self) -> List[Company]:
+        answer = []
+        keys = await self.redis.hkeys(CompanySchema.key)
+        for key in [str(x) for x in keys]:
+            company: Company = await self.get_entity(key, CompanySchema())
+            answer.append(company)
+        return answer

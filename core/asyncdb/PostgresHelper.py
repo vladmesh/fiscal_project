@@ -1,8 +1,8 @@
 import aiopg as aiopg
 
-from core.entities.Enums import Tax, Vat, PaymentType, DocumentType
+from core.entities.Enums import DocumentType
 from core.entities.entities import Document, Ticket, Company
-from revise_service.entities import ReviseTicket, ReviseDocument
+from core.sources.entities import ReviseTicket, ReviseDocument
 
 
 class PostgresAsyncHelper:
@@ -11,7 +11,7 @@ class PostgresAsyncHelper:
 
     async def execute_query(self, query, has_result=True):
         answer = None
-        async with aiopg.create_pool(self.dsn, timeout=500) as pool:
+        async with aiopg.create_pool(self.dsn, timeout=1500) as pool:
             async with pool.acquire() as conn:
                 async with conn.cursor() as cur:
                     await cur.execute(query)
@@ -29,6 +29,8 @@ class PostgresHelperDbf(PostgresAsyncHelper):
 
     async def get_documents_by_date_fiscal(self, date_from, date_to, companies):
         documents = set()
+        companies_str = ','.join(f"'{x.inn + x.kpp}'" for x in companies)
+        companies_str = f'({companies_str})'
         command = f"set timezone = 'utc'; select d.id, fn_number, fiscal_number, fiscal_sign, session_num," \
                   f" num_in_session, date_fiscal, price, additional_prop, tickets_tax.name as tax_name," \
                   f" tickets_vat.name as vat_name," \
@@ -38,14 +40,18 @@ class PostgresHelperDbf(PostgresAsyncHelper):
                   f"tickets_company.id = d.company_id) " \
                   f"join public.tickets_tax on (tickets_tax.id = d.tax_id) " \
                   f"join public.tickets_vat on (tickets_vat.id = d.vat_id) " \
-                  f"where date_fiscal >= '{date_from}' and date_fiscal < '{date_to}' and d.company_id in {companies}"
+                  f"where date_fiscal >= '{date_from}' and date_fiscal < '{date_to}' and CONCAT(inn, kpp) in {companies_str}"
         rows = await self.execute_query(command)
         for row in rows:
-            documents.add(ReviseDocument(row))
+            document = ReviseDocument(row)
+            document.company_id = [x for x in companies if x.inn == document.inn and x.kpp == document.kpp][0].id
+            documents.add(document)
         return documents
 
     async def get_tickets_by_date_ins(self, date_from, date_to, companies):
         tickets = set()
+        companies_str = ','.join(f"'{x.inn + x.kpp}'" for x in companies)
+        companies_str = f'({companies_str})'
         command = f"set timezone = 'utc'; select t.id, ticket_number, ticket_series, date_trip, " \
                   f"date_ins_asuop, payment_type, price, tickets_tax.name as tax_name," \
                   f" tickets_vat.name as vat_name, inn, kpp " \
@@ -55,10 +61,12 @@ class PostgresHelperDbf(PostgresAsyncHelper):
                   f"join public.tickets_tax on (tickets_tax.id = t.tax_id) " \
                   f"join public.tickets_vat on (tickets_vat.id = t.vat_id) " \
                   f"where date_ins_asuop >= '{date_from}' and date_ins_asuop < '{date_to}' " \
-                  f"and t.company_id in {companies}"
+                  f"and CONCAT(inn, kpp) in {companies_str}"
         rows = await self.execute_query(command)
         for row in rows:
-            tickets.add(ReviseTicket(row))
+            ticket = ReviseTicket(row)
+            ticket.company_id = [x for x in companies if x.inn == ticket.inn and x.kpp == ticket.kpp][0].id
+            tickets.add(ticket)
         return tickets
 
     async def insert_ticket(self, ticket: Ticket):

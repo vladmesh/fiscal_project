@@ -1,0 +1,12 @@
+aiohttp==3.7.4.post0
+aiomisc==14.4.2
+dataclasses
+idna==3.2
+typing-extensions==3.10.0.2
+idna==3.2
+
+python-dateutil~=2.8.2
+marshmallow~=3.13.0
+marshmallow_enum
+aioredis~=2.0.0
+requests~=2.26.0

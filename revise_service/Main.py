@@ -1,8 +1,8 @@
 from aiomisc import entrypoint
 
-from revise_service.server.aiohttp_server import REST
+from server.aiohttp_server import REST
 
-rest_service = REST(address='10.2.50.28', port=8085)
+rest_service = REST(address='0.0.0.0', port=8085)
 services = [rest_service]
 
 with entrypoint(*services) as loop:

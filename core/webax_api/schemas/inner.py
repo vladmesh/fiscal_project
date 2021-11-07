@@ -2,8 +2,7 @@ from marshmallow import Schema, fields, validate, post_load
 from marshmallow_enum import EnumField
 
 from core.entities.Enums import Tax, Vat
-from core.entities.entities import SourceSettings, Route, Division, CompanyAsuop
-from revise_service.entities import SourceType
+from core.entities.entities import SourceSettings, Route, Division, CompanyAsuop, SourceType
 
 
 class SourceSettingsSchema(Schema):
@@ -14,6 +13,7 @@ class SourceSettingsSchema(Schema):
     database_name = fields.String()
     login = fields.String()
     password = fields.String()
+    timezone = fields.String()
     query_new_tickets = fields.String()
     query_revise = fields.String()
     query_by_id = fields.String()

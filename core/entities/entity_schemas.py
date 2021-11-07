@@ -61,12 +61,14 @@ class CompanySchema(EntitySchema):
     payment_place = fields.String(validate=validate.Length(max=25))
     authorized_person_name = fields.String(validate=validate.Length(max=80))
     agent_agent = fields.Integer(validate=validate.Range(min=0, max=1))
-    tax = fields.String(validate=validate.Length(min=3, max=9), required=True)
+    tax = EnumField(Tax)
     provider_name = fields.String()
     provider_phone = fields.String()
     provider_inn = fields.String()
     additional_field_meaning = fields.String()
     additional_field_value = fields.String()
+    ofd_login = fields.String()
+    ofd_password = fields.String()
 
 
 class CashboxSchema(EntitySchema):
@@ -129,14 +131,15 @@ class CompanyListSchema(Schema):
 class RouteSchema(EntitySchema):
     key = 'routes'
     model_class = Route
-    id = fields.String()
+    route_num = fields.String()
     vat = EnumField(Vat)
 
 
 class DivisionSchema(EntitySchema):
     key = 'divisions'
     model_class = Division
-    party_id = fields.String()
+    id = fields.Integer()
+    source_id = fields.String()
     routes = fields.List(fields.Nested(RouteSchema))
 
 

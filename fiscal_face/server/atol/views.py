@@ -3,14 +3,14 @@ import datetime
 import aiohttp.web
 from marshmallow import ValidationError
 
-from core.asyncdb.PostgresHelper import PostgresAsyncHelper, PostgresHelperTmp
 from core.entities.Enums import Tax, DocumentType
 from core.entities.entities import Company, Ticket
 from core.redis_api.RedisApi import RedisApi
-from fiscal_face.server.atol.ErrorHandler import ErrorHandler, MegapolisApiErrorType
-from fiscal_face.server.atol.schemas.answers import GetTicketAnswerSchema, MegapolisApiAnswerSchema, MegapolisAnswerStatus, \
+from server.atol.ErrorHandler import ErrorHandler, MegapolisApiErrorType
+from server.atol.schemas.answers import GetTicketAnswerSchema, MegapolisApiAnswerSchema, \
+    MegapolisAnswerStatus, \
     MegapolisApiAnswerSchemaGetTicket, MegapolisApiAnswerSchemaGetToken
-from fiscal_face.server.atol.schemas.requests import PostTicketSchema, GetTicketSchema, GetTokenSchema
+from server.atol.schemas.requests import PostTicketSchema, GetTicketSchema, GetTokenSchema
 
 
 async def get_token(request):
@@ -58,22 +58,22 @@ async def post_ticket(request):
     company: Company = await redis_api.get_company_by_inn_kpp(dict_request['company_inn'], dict_request['company_kpp'])
     if company is None:
         return await error_handler.generate(MegapolisApiErrorType.UNKNOWN_COMPANY, data)
-    postgres_helper = PostgresHelperTmp()
-    ticket = await postgres_helper.get_ticket(dict_request['ticket_id'])
-    if ticket:
-        return await error_handler.generate(MegapolisApiErrorType.TICKET_ALREADY_EXISTS, data)
-    ticket_dict = {'ticket_series': 'paiq', 'ticket_number': dict_request['ticket_id'], 'tax': Tax.SIMPEXP,
-                   'vat': dict_request['vat'], 'payment_date': dict_request['payment_date'],
-                   'price': dict_request['price'], 'payment_type': dict_request['payment_type'],
-                   'id': 0, 'client_email': dict_request['client_email'],
-                   'company_id': company.id}
+    # postgres_helper = PostgresHelperTmp()
+    # ticket = await postgres_helper.get_ticket(dict_request['ticket_id'])
+    # if ticket:
+    #     return await error_handler.generate(MegapolisApiErrorType.TICKET_ALREADY_EXISTS, data)
+    # ticket_dict = {'ticket_series': 'paiq', 'ticket_number': dict_request['ticket_id'], 'tax': Tax.SIMPEXP,
+    #                'vat': dict_request['vat'], 'payment_date': dict_request['payment_date'],
+    #                'price': dict_request['price'], 'payment_type': dict_request['payment_type'],
+    #                'id': 0, 'client_email': dict_request['client_email'],
+    #                'company_id': company.id}
 
-    ticket = Ticket(**ticket_dict)
-    await postgres_helper.insert_ticket(ticket)
-    answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.OK}
-    full_answer_schema = MegapolisApiAnswerSchema()
-    answer_json = full_answer_schema.dumps(answer_dict)
-    return aiohttp.web.Response(text=answer_json, content_type='application/json')
+    # ticket = Ticket(**ticket_dict)
+    # await postgres_helper.insert_ticket(ticket)
+    # answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.OK}
+    # full_answer_schema = MegapolisApiAnswerSchema()
+    # answer_json = full_answer_schema.dumps(answer_dict)
+    # return aiohttp.web.Response(text=answer_json, content_type='application/json')
 
 
 async def get_ticket(request):
@@ -95,21 +95,21 @@ async def get_ticket(request):
     company: Company = await redis_api.get_company_by_inn_kpp(dict_request['company_inn'], dict_request['company_kpp'])
     if company is None:
         return await error_handler.generate(MegapolisApiErrorType.UNKNOWN_COMPANY, data)
-    ticket_number = dict_request['ticket_id']
-    postgres_helper = PostgresHelperTmp()
-    ticket = await postgres_helper.get_ticket(ticket_number)
-    if ticket is None:
-        return await error_handler.generate(MegapolisApiErrorType.TICKET_DOESNT_EXISTS, data)
-    document = await postgres_helper.get_document(ticket.id)
-    if document is None:
-        answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.IN_PROCESS, 'answer': None}
-        full_answer_schema = MegapolisApiAnswerSchema()
-        answer_json = full_answer_schema.dumps(answer_dict)
-    else:
-        document.document_type = DocumentType(document.document_type)
-        answer_schema = GetTicketAnswerSchema()
-        answer_json = answer_schema.dumps(document)
-        answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.OK, 'answer': document}
-        full_answer_schema = MegapolisApiAnswerSchemaGetTicket()
-        answer_json = full_answer_schema.dumps(answer_dict)
-    return aiohttp.web.Response(text=answer_json, content_type='application/json')
+    # ticket_number = dict_request['ticket_id']
+    # postgres_helper = PostgresHelperTmp()
+    # ticket = await postgres_helper.get_ticket(ticket_number)
+    # if ticket is None:
+    #     return await error_handler.generate(MegapolisApiErrorType.TICKET_DOESNT_EXISTS, data)
+    # document = await postgres_helper.get_document(ticket.id)
+    # if document is None:
+    #     answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.IN_PROCESS, 'answer': None}
+    #     full_answer_schema = MegapolisApiAnswerSchema()
+    #     answer_json = full_answer_schema.dumps(answer_dict)
+    # else:
+    #     document.document_type = DocumentType(document.document_type)
+    #     answer_schema = GetTicketAnswerSchema()
+    #     answer_json = answer_schema.dumps(document)
+    #     answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.OK, 'answer': document}
+    #     full_answer_schema = MegapolisApiAnswerSchemaGetTicket()
+    #     answer_json = full_answer_schema.dumps(answer_dict)
+    # return aiohttp.web.Response(text=answer_json, content_type='application/json')

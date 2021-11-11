@@ -1,6 +1,4 @@
 import cx_Oracle
-import asyncio
-import concurrent.futures
 
 # TODO Тут бы тоже нужно какую-то асинхронную либу, но у меня не получилось подключиться ни через cx_Oracle_async,
 # TODO ни через aioodbc
@@ -23,6 +21,7 @@ class OracleHelper:
         self.conn.close()
 
     def execute(self, command, has_result=True):
+        print("начало блокирующей функции")
         records = []
         col_names = []
         self.open()
@@ -32,6 +31,7 @@ class OracleHelper:
             col_names = [x[0] for x in self.cursor.description]
         self.close()
         if has_result:
+            print("конец блокирующей функции")
             return [dict(zip(col_names, record)) for record in records]
 
 

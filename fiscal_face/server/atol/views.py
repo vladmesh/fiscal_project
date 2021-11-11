@@ -25,8 +25,8 @@ async def get_token(request):
             field_dict = {'field_name': field, 'message': e.messages[field]}
             fields_list.append(field_dict)
         return await error_handler.generate(MegapolisApiErrorType.WRONG_FIELDS_FORMAT, data, fields_list)
-    if dict_request['login'] == 'test' and dict_request['password'] == 'test':
-        dict_token = {"token": "testtoken"}
+    if dict_request['login'] == 'payiq' and dict_request['password'] == '5EWbC]?<':
+        dict_token = {"token": "2QT4fwpMeJf36POk6yJV_adQssw5c"}
         answer_schema = MegapolisApiAnswerSchemaGetToken()
         answer_dict = {'timestamp': datetime.datetime.now(), 'status': MegapolisAnswerStatus.OK, 'answer': dict_token}
         answer_json = answer_schema.dumps(answer_dict)

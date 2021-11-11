@@ -2,13 +2,13 @@ from enum import Enum
 
 
 class Tax(Enum):
-    SIMPEXP = 1
-    GEN = 2
-    SIMP = 3
+    SIMPEXP = 2
+    GEN = 0
+    SIMP = 1
 
 
 class Vat(Enum):
-    NONDS = 1
+    NONDS = 6
     NDS20 = 2
 
 

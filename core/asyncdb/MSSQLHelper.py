@@ -30,7 +30,7 @@ class MSSql:
         self.cursor = await self.connection.cursor()
 
     async def close_connection(self):
-        await self.cursor.close
+        await self.cursor.close()
         await self.connection.close()
 
     async def execute(self, command, has_result=True):
@@ -44,5 +44,6 @@ class MSSql:
                 for i in range(len(self.cursor.description)):
                     record_dict[self.cursor.description[i][0]] = strip(row[i])
                 answer.append(record_dict)
+            await self.close_connection()
             return answer
         await self.close_connection()

@@ -1,9 +1,12 @@
+import logging
 from datetime import datetime, timedelta
+
+from core.entities.Enums import Tax, Vat, PaymentType, DocumentType
 from core.utils import change_timezone
 from dateutil import tz
 
 
-class ReviseTicket:
+class SourceTicket:
     def __init__(self, record=None):
         self.company_id = None
         if record:
@@ -11,7 +14,7 @@ class ReviseTicket:
             self.ticket_series = record['ticket_series']
             self.ticket_number = record['ticket_number']
             self.date_ins = record['date_ins_asuop']
-            self.payment_type = record['payment_type']
+            self.payment_type = PaymentType(record['payment_type'])
             self.date_trip = record['date_trip']
             if 'inn' in record:
                 self.inn = record['inn']
@@ -21,9 +24,23 @@ class ReviseTicket:
                 self.company_id = record['company_id']
             self.vat = record['vat_name']
             self.tax = record['tax_name']
+            if self.tax == 'SIMPEXP':
+                self.tax = Tax.SIMPEXP
+            elif self.tax == 'GEN':
+                self.tax = Tax.GEN
+            elif self.tax == 'SIMP':
+                self.tax = Tax.SIMP
+            else:
+                raise Exception(f"Неизвестный тип налогообложения {self.tax}")
+            if self.vat == 'NONDS':
+                self.vat = Vat.NONDS
+            elif self.vat == 'NDS20':
+                self.vat = Vat.NDS20
+            else:
+                raise Exception(f"Неизвестная налоговая ставка {self.vat}")
             self.price = record['price']
 
-    def init_from_service(self, record):
+    def del_init_from_service(self, record):
         self.id = record['ticketid']
         self.ticket_series = record['ticketseries']
         self.ticket_number = record['ticketnumber']
@@ -35,11 +52,35 @@ class ReviseTicket:
         self.tax = record['tax']
         self.price = record['price']
 
+    def init_from_validator_trans(self, record):
+        self.id = record['RECID']
+        self.tax = Tax.GEN
+        self.vat = Vat.NDS20
+        if record['PASSCARDTYPEID'] == 150:
+            self.payment_type = PaymentType.CASH
+        else:
+            self.payment_type = PaymentType.NON_CASH
+        self.price = int(record['AMOUNTORIG'])
+        self.date_ins = record['CREATEDDATETIME']
+        release_date = record['DATERELEASE']
+        td = timedelta(seconds=record['TIMEABS'])
+        self.date_trip = release_date + td
+        self.date_trip = change_timezone(self.date_trip, 'UTC', 'UTC')
+        self.date_ins = change_timezone(self.date_ins, 'UTC', 'UTC')
+        self.ticket_series = f"{release_date.strftime('%d%m%Y')}-{record['MODULEID']}"
+
+        s = td.total_seconds()
+        hours, remainder = divmod(s, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        self.ticket_number = '{:02}{:02}{:02}'.format(int(hours), int(minutes), int(seconds))
+        self.inn = '4705021744'
+        self.kpp = '771545001'
+
     def init_from_oracle(self, record, timezone):
         self.id = record['ID']
         self.ticket_series = record['TICKETSERIES']
         self.ticket_number = str(record['TICKETNUMBER'])
-        self.payment_type = int(record['PAYMENTTYPE'])
+        self.payment_type = PaymentType(int(record['PAYMENTTYPE']))
         self.date_ins = change_timezone(record['INS_DATE'], timezone, 'UTC')
         self.date_trip = change_timezone(record['DATETRIP'], timezone, 'UTC')
         self.price = int(record['PRICE'])
@@ -53,9 +94,9 @@ class ReviseTicket:
         tid = record['rrTerminalId']
         self.ticket_number = record['rrPaymentERN']
         if record['axPassCardTypeId'] == 14:
-            self.payment_type = 1
+            self.payment_type = PaymentType.CASH
         elif record['axPassCardTypeId'] == 32:
-            self.payment_type = 2
+            self.payment_type = PaymentType.NON_CASH
         else:
             raise Exception("Неверный тип карты")
 
@@ -78,12 +119,12 @@ class ReviseTicket:
 
     def init_from_mysql_transaction(self, record):
         self.id = record['record_id']
-        self.tax = "GEN"
-        self.vat = "NONDS"
-        self.payment_type = 2
+        self.tax = Tax.GEN
+        self.vat = Vat.NONDS
+        self.payment_type = PaymentType.NON_CASH
         self.price = record['amount']
         td = record['terminal_date']
-        self.date_ins = record['created_date']
+        self.date_ins = change_timezone(record['created_date'], 'UTC', 'UTC')
         self.date_trip = td
         terminal_id = record['terminal_id']
         if terminal_id == '':
@@ -104,7 +145,7 @@ class ReviseTicket:
         Переопределяем методы сравнения так, чтобы объекты с одинаковыми значениями ключевых полей
         считались одним объектом, это помогает искать нужный документ по ключевым полям за O(1)
         """
-        if not isinstance(other, ReviseTicket):
+        if not isinstance(other, SourceTicket):
             return False
 
         return (self.ticket_number == other.ticket_number and
@@ -114,7 +155,7 @@ class ReviseTicket:
         return hash((self.ticket_number, self.ticket_series, self.inn, self.price))
 
 
-class ReviseDocument:
+class SourceDocument:
     def __init__(self, record=None):  # инициализируем из записи
         if record:
             self.id = record['id']
@@ -131,8 +172,22 @@ class ReviseDocument:
                 self.tax = record['tax_name']
             if 'vat_name' in record:
                 self.vat = record['vat_name']
-            self.type = record['type_id']
-            self.payment_type = record['payment_type']
+            if self.vat == 'NONDS':
+                self.vat = Vat.NONDS
+            elif self.vat == 'NDS20':
+                self.vat = Vat.NDS20
+            else:
+                raise Exception(f"Неизвестная налоговая ставка {self.vat}")
+            if self.tax == 'SIMPEXP':
+                self.tax = Tax.SIMPEXP
+            elif self.tax == 'GEN':
+                self.tax = Tax.GEN
+            elif self.tax == 'SIMP':
+                self.tax = Tax.SIMP
+            else:
+                raise Exception(f"Неизвестный тип налогообложения {self.tax}")
+            self.type = DocumentType(record['type_id'])
+            self.payment_type = PaymentType(record['payment_type'])
             if 'inn' in record:
                 self.inn = record['inn']
             if 'kpp' in record:
@@ -161,21 +216,32 @@ class ReviseDocument:
         self.session_num = record['DocShiftNumber']
         self.price = record['TotalSumm']
         if record['CashSumm'] > 0:
-            self.payment_type = 1
+            self.payment_type = PaymentType.CASH
         elif record['ECashSumm'] > 0:
-            self.payment_type = 2
+            self.payment_type = PaymentType.NON_CASH
         else:
-            self.payment_type = 1
+            self.payment_type = PaymentType.CASH
 
         if 'TaxNaSumm' in record and record['TaxNaSumm'] > 0:
-            self.vat = 'NONDS'
+            self.vat = Vat.NONDS
         else:
-            self.vat = 'NDS20'  # сюда же нолики
+            self.vat = Vat.NDS20  # сюда же нолики
 
         if record['IsCorrection']:
-            self.type = 8
+            self.type = DocumentType.correction
         else:
-            self.type = 1
+            self.type = DocumentType.receipt
+        if 'TaxationType' in record:
+            tax_type = record['TaxationType']
+            if tax_type == 1:
+                self.tax = Tax.GEN
+            if tax_type == 2:
+                self.tax = Tax.SIMP
+            if tax_type == 3:
+                self.tax = Tax.SIMPEXP
+        self.additional_prop = ''
+        if 'AdditionalRequisite' in record:
+            self.additional_prop = record['AdditionalRequisite']
 
         if record['OperationType'] == "Income":
             self.operation_type = 1
@@ -187,7 +253,7 @@ class ReviseDocument:
             raise Exception(f"{record['OperationType']} - неизвестный тип операциии")
 
         if record['Depth'] > 1:
-            raise Exception("Несколько билетов в чеке")
+            logging.error(f"Несколько билетов в чеке {self.id}")
 
     def __eq__(self, other):
         """
@@ -195,12 +261,13 @@ class ReviseDocument:
         Переопределяем методы сравнения так, чтобы объекты с одинаковыми значениями ключевых полей
         считались одним объектом, это помогает искать нужный документ по ключевым полям за O(1)
         """
-        if not isinstance(other, ReviseDocument):
+        if not isinstance(other, SourceDocument):
             return False
 
         return (self.fn_number == other.fn_number and
                 self.fiscal_number == other.fiscal_number and self.num_in_session == other.num_in_session
-                and self.price == other.price and self.payment_type == other.payment_type and self.type == other.type)
+                and self.price == other.price and (self.payment_type == other.payment_type or self.price == 0)
+                and self.type == other.type)
 
     def __hash__(self):
         return hash((self.fn_number, self.fiscal_number, self.num_in_session, self.price, self.payment_type, self.type))

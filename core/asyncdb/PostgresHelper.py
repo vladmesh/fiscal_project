@@ -1,8 +1,10 @@
+import logging
+
 import aiopg as aiopg
 
 from core.entities.Enums import DocumentType
 from core.entities.entities import Document, Ticket, Company
-from core.sources.entities import ReviseTicket, ReviseDocument
+from core.sources.entities import SourceTicket, SourceDocument
 
 
 class PostgresAsyncHelper:
@@ -24,13 +26,16 @@ class PostgresAsyncHelper:
 
 
 class PostgresHelperDbf(PostgresAsyncHelper):
+    # TODO по хорошему, весь этот код должен быть внутри джанго и вызываться через http
     def __init__(self):
         super().__init__(host='10.2.50.17', user='fiscal', password='fiscal', dbname='fiscaldb_new', port=5433)
 
     async def get_documents_by_date_fiscal(self, date_from, date_to, companies):
         documents = set()
-        companies_str = ','.join(f"'{x.inn + x.kpp}'" for x in companies)
+        companies_str = ','.join(f"'{x.inn + x.kpp}'" for x in companies if x.ofd_login and x.ofd_password)
         companies_str = f'({companies_str})'
+        if companies_str == '()':
+            return documents
         command = f"set timezone = 'utc'; select d.id, fn_number, fiscal_number, fiscal_sign, session_num," \
                   f" num_in_session, date_fiscal, price, additional_prop, tickets_tax.name as tax_name," \
                   f" tickets_vat.name as vat_name," \
@@ -43,7 +48,7 @@ class PostgresHelperDbf(PostgresAsyncHelper):
                   f"where date_fiscal >= '{date_from}' and date_fiscal < '{date_to}' and CONCAT(inn, kpp) in {companies_str}"
         rows = await self.execute_query(command)
         for row in rows:
-            document = ReviseDocument(row)
+            document = SourceDocument(row)
             document.company_id = [x for x in companies if x.inn == document.inn and x.kpp == document.kpp][0].id
             documents.add(document)
         return documents
@@ -64,7 +69,7 @@ class PostgresHelperDbf(PostgresAsyncHelper):
                   f"and CONCAT(inn, kpp) in {companies_str}"
         rows = await self.execute_query(command)
         for row in rows:
-            ticket = ReviseTicket(row)
+            ticket = SourceTicket(row)
             ticket.company_id = [x for x in companies if x.inn == ticket.inn and x.kpp == ticket.kpp][0].id
             tickets.add(ticket)
         return tickets
@@ -74,18 +79,18 @@ class PostgresHelperDbf(PostgresAsyncHelper):
                   "date_trip, date_ins_asuop, date_ins_sf, payment_type, price, company_id, " \
                   f"payment_option_id, tax_id, vat_id)  VALUES(now(), '{ticket.ticket_number}', " \
                   f"'{ticket.ticket_series}', '{ticket.date_trip}', '{ticket.date_ins}', null , " \
-                  f"{ticket.payment_type.value}, {ticket.price}, {ticket.company_id}, null, {ticket.tax.value}, " \
-                  f"{ticket.vat.value});"
+                  f"{ticket.payment_type.value}, {ticket.price}, {ticket.company_id}, null, {ticket.tax}, " \
+                  f"{ticket.vat});"
         await self.execute_query(command, False)
 
     async def insert_document(self, document: Document):
         command = "INSERT INTO public.tickets_fiscaldocument(date_create, fn_number, fiscal_number, fiscal_sign, " \
                   "session_num, num_in_session, date_fiscal, date_ins_sf, price, additional_prop, " \
                   " is_storned,  company_id, tax_id,  type_id, vat_id, payment_type) " \
-                  f"VALUES (now(), {document.fiscal_storage_number}, {document.fiscal_number}, " \
+                  f"VALUES (now(), {document.fn_number}, {document.fiscal_number}, " \
                   f"{document.fiscal_sign}, {document.session_num}, {document.num_in_session}, " \
-                  f"'{document.fiscal_date}', null, {document.price}, null, false, {document.company_id}, " \
-                  f"{document.tax.value}, {document.document_type.value}, {document.vat.value}, " \
+                  f"'{document.date_fiscal}', null, {document.price}, null, false, {document.company_id}, " \
+                  f"{document.tax}, {document.type.value}, {document.vat}, " \
                   f"{document.payment_type.value});"
         await self.execute_query(command, False)
 
@@ -118,14 +123,14 @@ class PostgresHelperDbf(PostgresAsyncHelper):
         command = "select company_id, id as dbf_id, vat_id as vat, tax_id as tax, date_trip, price, payment_type" \
                   " from tickets_fiscalticket t where not exists " \
                   "(select 1 from tickets_fiscaldocument d where " \
-                  "d.ticket_id = t.id) and id > 150000000"
+                  "d.ticket_id = t.id)"
         rows = await self.execute_query(command)
         for row in rows:
             ticket = Ticket(**row)
             answer.append(ticket)
         return answer
 
-    async def get_document_for_ticket(self, ticket: ReviseTicket, need_date):
+    async def get_document_for_ticket(self, ticket: SourceTicket, need_date):
         command = f"select * from tickets_fiscaldocument d " \
                   f"where d.company_id = {ticket.company_id} and d.vat_id = {ticket.vat} " \
                   f"and d.tax_id = {ticket.tax} and d.price = {ticket.price} " \
@@ -136,9 +141,9 @@ class PostgresHelperDbf(PostgresAsyncHelper):
         rows = await self.execute_query(command)
         if len(rows) == 0:
             return None
-        return ReviseDocument(rows[0])
+        return SourceDocument(rows[0])
 
-    async def bind_doc_to_ticket(self, doc: ReviseDocument, ticket: Ticket):
+    async def bind_doc_to_ticket(self, doc: SourceDocument, ticket: Ticket):
         command = f"update tickets_fiscaldocument set ticket_id = {ticket.dbf_id} where id = {doc.id}"
         await self.execute_query(command, False)
 
@@ -150,6 +155,14 @@ class PostgresHelperDbf(PostgresAsyncHelper):
         command = "delete from public.tickets_fiscaldocument where type_id in (1,8) and is_storned = false " \
                   "and ticket_id is null"
         await self.execute_query(command, False)
+
+    async def get_max_date_ins_for_source(self, ax_source_id):
+        command = "select max(date_ins_asuop) as max_date from public.tickets_fiscalticket where source_id = " \
+                  f"(select id from public.tickets_source where ax_id = '{ax_source_id}')"
+        rows = await self.execute_query(command)
+        if len(rows) == 0 or 'max_date' not in rows[0]:
+            return None
+        return rows[0]['max_date']
 
 
 class PostgresHelperDev(PostgresAsyncHelper):
@@ -244,6 +257,6 @@ class PostgresHelperTmp(PostgresAsyncHelper):
     async def insert_document(self, document: Document):
         command = f"insert into dbo.documents(fiscal_number, fiscal_sign, fiscal_storage_number, " \
                   f"fiscal_date, document_type, ticket_id) VALUES({document.fiscal_number}, {document.fiscal_sign}, " \
-                  f"{document.fiscal_storage_number}, '{document.fiscal_date}', {document.document_type.value}, " \
+                  f"{document.fn_number}, '{document.date_fiscal}', {document.type.value}, " \
                   f"{document.ticket_id})"
         await self.execute_query(command, False)

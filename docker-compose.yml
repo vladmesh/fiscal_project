@@ -8,7 +8,7 @@ services:
 #      - face
 #    restart: always
 #    environment:
-#      DOMAINS: 'face.com -> http://face:8082'
+#      DOMAINS: 'app.mega-fiscal.com -> http://face:8082'
 
   redis:
     image: redis:4
@@ -26,6 +26,13 @@ services:
       dockerfile: ./revise_service/Dockerfile
     ports:
       - 8085:8085
+#  fink:
+#    build:
+#      context: .
+#      dockerfile: ./fink_service/Dockerfile
+#    ports:
+#      - 8086:8086
+
 
 
 

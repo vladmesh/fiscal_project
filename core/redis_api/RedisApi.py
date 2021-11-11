@@ -4,7 +4,8 @@ from typing import List
 import aioredis
 
 from core.entities.entities import Company, Cashbox
-from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema
+from core.entities.entity_schemas import CompanySchema, OfdSchema, InstallPlaceSchema, CashboxSchema, EntitySchema, \
+    TicketSchema
 from core.webax_api.WebaxHelper import WebaxHelper
 
 
@@ -12,7 +13,7 @@ class RedisApi:
     """Класс для взаизмодействия с очередями Redis"""
 
     def __init__(self):
-        self.redis = aioredis.from_url('redis://localhost', decode_responses=True, encoding="utf-8")
+        self.redis = aioredis.from_url('redis://redis', decode_responses=True, encoding="utf-8")
         self.webax = WebaxHelper()
         self.lock = asyncio.Lock()
 
@@ -42,7 +43,7 @@ class RedisApi:
         await self.update_data_records(ax_dicts[CashboxSchema.key], CashboxSchema.key, CashboxSchema())
 
     async def get_entity(self, entity_id, schema: EntitySchema):
-        entity_json = await self.redis.hget(schema.key, entity_id)
+        entity_json = await self.redis.hget(schema.key, entity_id)  # TODO empty json handler
         answer = schema.loads(entity_json)
         return answer
 
@@ -57,10 +58,16 @@ class RedisApi:
         free_cashbox = await self.redis.hget(ticket.company_id, 1)
         return free_cashbox
 
-    def get_companies(self) -> List[Company]:
+    async def get_companies(self) -> List[Company]:
         answer = []
         keys = await self.redis.hkeys(CompanySchema.key)
         for key in [str(x) for x in keys]:
             company: Company = await self.get_entity(key, CompanySchema())
             answer.append(company)
         return answer
+
+    async def insert_ticket(self, ticket):
+        schema = TicketSchema()
+        record_json = schema.dumps(ticket)
+        # для каждой компании создаём свой set с ключом типа "tickets_{company_id}"
+        await self.redis.hset(f"{schema.key}_{ticket.company_id}", ticket.id, record_json)

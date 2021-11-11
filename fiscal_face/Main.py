@@ -1,11 +1,15 @@
+import logging
+
 from aiomisc import entrypoint
+from aiomisc.log import basic_config
 
 from face.PeriodicTasks import FiscalPeriodic
 from server.aiohttp_server import REST
 
-rest_service = REST(address='localhost', port=8082)
-fiscal_service = FiscalPeriodic(interval=5*60)
-services = [rest_service, fiscal_service]
+basic_config(level=logging.DEBUG, buffered=False)
+logging.debug('begin')
+rest_service = REST(address='0.0.0.0', port=8082)
+fiscal_service = FiscalPeriodic(interval=5*65)
 
-with entrypoint(*services) as loop:
+with entrypoint(rest_service, fiscal_service) as loop:
     loop.run_forever()

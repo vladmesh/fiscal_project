@@ -1,8 +1,19 @@
+from dataclasses import dataclass
+from typing import List
+
 from marshmallow import Schema, fields, validate, post_load
 from marshmallow_enum import EnumField
 
 from core.entities.Enums import Tax, Vat
 from core.entities.entities import SourceSettings, Route, Division, CompanyAsuop, SourceType
+
+
+@dataclass
+class FiscalApiUser:
+    id: str
+    login: str
+    password: str
+    companies: List[str]
 
 
 class SourceSettingsSchema(Schema):
@@ -52,3 +63,14 @@ class CompanyAsuopSchema(Schema):
     @post_load
     def make_model(self, data, **kwargs):
         return CompanyAsuop(**data)
+
+
+class FiscalApiUserSchema(Schema):
+    id = fields.String()
+    login = fields.String(validate=validate.Length(max=20))
+    password = fields.String(validate=validate.Length(max=20))
+    companies = fields.List(fields.String())
+
+    @post_load
+    def make_model(self, data, **kwargs):
+        return FiscalApiUser(**data)

@@ -1,8 +1,11 @@
+import logging
+from aiomisc.log import basic_config
 from aiomisc import entrypoint
 from FinkPeriodic import FinkPeriodic
 from fink_aiohttp_server import REST
 
-rest_service = REST(address='localhost', port=8082)
+basic_config(level=logging.DEBUG, buffered=True)
+rest_service = REST(address='0.0.0.0', port=8086)
 periodic_service = FinkPeriodic(interval=6*60)
 
 

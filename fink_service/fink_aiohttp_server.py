@@ -2,10 +2,8 @@ import aiohttp.web
 from aiomisc.service.aiohttp import AIOHTTPService
 
 
-async def handle(request):
-    name = request.match_info.get('name', "Anonymous")
-    text = "Hello, " + name
-    return aiohttp.web.Response(text=text)
+async def ping(request):
+    return aiohttp.web.Response(text="{answer:OK}")
 
 
 class REST(AIOHTTPService):
@@ -13,8 +11,7 @@ class REST(AIOHTTPService):
         app = aiohttp.web.Application()
 
         app.add_routes([
-            aiohttp.web.get('/', handle),
-            aiohttp.web.get('/{name}', handle)
+            aiohttp.web.get('/ping', ping),
         ])
 
         return app

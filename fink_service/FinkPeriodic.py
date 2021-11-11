@@ -3,20 +3,16 @@ from typing import Any
 
 from aiomisc.service.periodic import PeriodicService
 
-from core.sources.ASUOP_Helper import construct
+from core.sources.Source_Helper import construct
 from core.redis_api.RedisApi import RedisApi
 from core.webax_api.WebaxHelper import WebaxHelper
-from fink_service.DocumentChecker import DocumentChecker
-from FiscalSender import FiscalSender
 
 
 class FinkPeriodic(PeriodicService):
     def __init__(self, **kwargs: Any):
         super().__init__(**kwargs)
-        self.fiscal_api = FiscalSender()
         self.redis = RedisApi()
         self.webax = WebaxHelper()
-        self.checker = DocumentChecker()
 
     async def callback(self):
         tickets = set()
@@ -31,4 +27,5 @@ class FinkPeriodic(PeriodicService):
         group = asyncio.gather(*funcs)
         results = await group
         tickets = tickets.union(*results)
-        return tickets
+        for ticket in tickets:
+            await self.redis.insert_ticket(ticket)

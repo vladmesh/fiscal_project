@@ -25,8 +25,6 @@ default_descriptions = {MegapolisApiErrorType.WRONG_TOKEN: "Токен неак�
 
 
 class ErrorHandler:
-
-
     async def generate(self, error_type: MegapolisApiErrorType, request, fields_list=None, text=''):
         request = request.decode('utf-8')
         answer = ''

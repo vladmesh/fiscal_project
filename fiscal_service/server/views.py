@@ -11,7 +11,6 @@ async def get_cashbox_data(request):
     data = await request.read()
     schema = GetCashboxDataRequestSchema()
     request: GetCashboxDataRequest = schema.loads(data)
-    # redis_api = RedisApi()
     sender = CashboxSender(request.ip, request.port)
     fn_status = sender.get_storage_status()
     terminal_status = sender.get_terminal_status()

@@ -115,11 +115,11 @@ class Ticket:
 
 @dataclass
 class Document:
-    fiscal_storage_number: int
+    fn_number: int
     fiscal_number: int
     fiscal_sign: int
-    fiscal_date: datetime.datetime
-    document_type: DocumentType
+    date_fiscal: datetime.datetime
+    type: DocumentType
     session_num: int
     num_in_session: int
     tax: Tax

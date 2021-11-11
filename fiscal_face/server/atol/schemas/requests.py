@@ -5,8 +5,8 @@ from core.entities.Enums import Vat, PaymentType
 
 
 class GetTokenSchema(Schema):
-    login = fields.String(validate=validate.Length(max=25))
-    password = fields.String(validate=validate.Length(max=30))
+    login = fields.String(validate=validate.Length(max=20))
+    password = fields.String(validate=validate.Length(max=20))
 
 
 class PostTicketSchema(Schema):

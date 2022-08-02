@@ -6,6 +6,7 @@ import requests
 import json
 import aiohttp
 
+from core.config import Config
 from core.entities.entities import Company, SourceSettings
 from core.webax_api.schemas.answers import UpdateDictionariesSchema, GetSourceSettingsSchema, GetAsuopSettingsSchema
 from core.webax_api.schemas.requests import UpdateStatusRequest, GetInnKppByPartyIdRequest, WebaxRequest, \
@@ -15,7 +16,7 @@ from core.webax_api.schemas.requests import UpdateStatusRequest, GetInnKppByPart
 
 class WebaxHelper:
     def __init__(self):
-        self.url = 'https://spkh-webax04.piteravto.ru/WebAX?Request'
+        self.url = Config.WEBAX_URL
         self.update_status_uid = '0fd8d67c-b393-4a2f-91bd-01aff594527b'
         self.get_inn_kpp_by_partyId_uid = 'c363c7f7-ba1f-47e2-adb0-7ad2923b3f76'
         self.update_revise_data_uid = 'd3dd3e6d-08a0-4d36-acf8-1403f67cd41c'
@@ -33,7 +34,7 @@ class WebaxHelper:
                                  amount_documents_db_cash, amount_documents_db_cashless,
                                  amount_documents_ofd_cash, amount_documents_ofd_cashless, answer
                                  ):
-        # TODO переписать через маршмэллоу
+        # TODO with marshmallow
         request = {'additional_tickets': additional_tickets,
                    'missed_tickets': missed_tickets,
                    'additional_documents': additional_docs,
@@ -55,7 +56,7 @@ class WebaxHelper:
         data = UpdateReviseDataSchema().dumps(request)
         async with aiohttp.ClientSession() as session:
             async with session.post(self.url, data=data) as resp:
-                answer_json = await resp.json(content_type=None)
+                _ = await resp.json(content_type=None)
         return ''
 
     def update_fiscal_status(self, recid: int, status: int):

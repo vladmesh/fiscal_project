@@ -17,9 +17,8 @@ class FinkPeriodic(PeriodicService):
     async def callback(self):
         tickets = set()
         funcs = []  # TODO тут бы нужно поставить таймауты и посмотреть в сторону asyncio.wait и отменяемых задач
-        # иначе зависание одного источника приведёт к невозможности выгрузки по остальным
         asuop_settings_list = await self.webax.get_sources_settings()
-        companies = await self.redis.get_companies()  # тут получаем полный список закэшированных компаний.
+        companies = await self.redis.get_companies()
         for asuop_settings in asuop_settings_list:
             asoup_helper = construct(asuop_settings)
             if asoup_helper:

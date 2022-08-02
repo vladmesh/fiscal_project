@@ -1,11 +1,9 @@
-import logging
-
 import aiopg as aiopg
 
 from core.entities.Enums import DocumentType
 from core.entities.entities import Document, Ticket, Company
 from core.sources.entities import SourceTicket, SourceDocument
-
+from core.config import Config
 
 class PostgresAsyncHelper:
     def __init__(self, host, dbname, user, password, port=5432):
@@ -26,9 +24,10 @@ class PostgresAsyncHelper:
 
 
 class PostgresHelperDbf(PostgresAsyncHelper):
-    # TODO по хорошему, весь этот код должен быть внутри джанго и вызываться через http
     def __init__(self):
-        super().__init__(host='10.2.50.17', user='fiscal', password='fiscal', dbname='fiscaldb_new', port=5433)
+        super().__init__(host=Config.POSTGRES_URL_DBF, user=Config.POSTGRES_USER_DBF,
+                         password=Config.POSTGRES_PW_DBF,
+                         dbname=Config.POSTGRES_DB_DBF, port=5433)
 
     async def get_documents_by_date_fiscal(self, date_from, date_to, companies):
         documents = set()

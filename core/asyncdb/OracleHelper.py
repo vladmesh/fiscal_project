@@ -21,7 +21,7 @@ class OracleHelper:
         self.conn.close()
 
     def execute(self, command, has_result=True):
-        print("начало блокирующей функции")
+        print("start blocking func")
         records = []
         col_names = []
         self.open()
@@ -31,7 +31,7 @@ class OracleHelper:
             col_names = [x[0] for x in self.cursor.description]
         self.close()
         if has_result:
-            print("конец блокирующей функции")
+            print("end blocking func")
             return [dict(zip(col_names, record)) for record in records]
 
 

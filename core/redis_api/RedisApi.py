@@ -10,7 +10,7 @@ from core.webax_api.WebaxHelper import WebaxHelper
 
 
 class RedisApi:
-    """Класс для взаизмодействия с очередями Redis"""
+    """interactions with redis queues"""
 
     def __init__(self):
         self.redis = aioredis.from_url('redis://redis', decode_responses=True, encoding="utf-8")
@@ -69,5 +69,4 @@ class RedisApi:
     async def insert_ticket(self, ticket):
         schema = TicketSchema()
         record_json = schema.dumps(ticket)
-        # для каждой компании создаём свой set с ключом типа "tickets_{company_id}"
         await self.redis.hset(f"{schema.key}_{ticket.company_id}", ticket.id, record_json)

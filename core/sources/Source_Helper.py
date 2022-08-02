@@ -12,7 +12,6 @@ from aiomisc.log import basic_config
 from core.asyncdb.MSSQLHelper import MSSql
 from core.asyncdb.MySqlHelper import MySqlHelper
 from core.asyncdb.OracleHelper import OracleHelper
-from core.asyncdb.PostgresHelper import PostgresHelperDbf
 from core.entities.Enums import Vat, PaymentType
 from core.entities.entities import Company, SourceSettings, SourceType, AsuopSettings
 from core.sources.entities import SourceTicket
@@ -87,12 +86,11 @@ class SourceHelperMsSqlAxValTrans(SourceHelper):
     async def get_new_tickets(self, companies: List[Company] = None) -> set:
         logging.debug(f"Start MSSQL_AX_VALTRANS::get_new_tickets {self.settings.id}")
         answer = set()
-        return answer  # только для сверки
+        return answer  # for checking
 
     async def get_tickets_on_date(self, date_from: dt.datetime, date_to: dt.datetime, companies: List[Company]) -> set:
         logging.debug(f"Start MSSQL_AX_VALTRANS::on_date {self.settings.id}")
         answer = set()
-        # вообще убрать бы этот источник, но Юра хочет пересверять старые данные, поэтому такие костыли
         if '000167921_247' in [x.id for x in companies]:
             command = self.settings.query_revise
             command = command.replace('{date_from}', f"{date_from.strftime('%Y-%m-%dT%H:%M:%S')}")
@@ -108,7 +106,7 @@ class SourceHelperMsSqlAxValTrans(SourceHelper):
 
 
 class SourceHelperMySql(SourceHelper):
-    """База MySql, используется в СПБ для хранения безналичных транзакций"""
+    """MySql database, for cashless transactions"""
 
     def __init__(self, settings: SourceSettings):
         self.mysqlHelper = MySqlHelper(settings.address, settings.database_name,
@@ -144,7 +142,7 @@ class SourceHelperMySql(SourceHelper):
 
 
 class SourceHelperMsSqlAxBUL(SourceHelper):
-    """Аксаптовские БД MSSQL, в них хранится наличка по СПБ"""
+    """Axapta database MSSQL, cash transactions"""
 
     def __init__(self, local_settings: SourceSettings):
         self.mssql_helper = MSSql(local_settings.address, local_settings.database_name, local_settings.login,
@@ -194,7 +192,7 @@ class SourceHelperMsSqlAxBUL(SourceHelper):
 
 
 class SourceHelperMsSqlTrans(SourceHelper):
-    """Вьюхи с транзакциями"""
+    """Views with transactions"""
 
     def __init__(self, settings: SourceSettings):
         self.mssql_helper = MSSql(settings.address, settings.database_name, settings.login,
@@ -226,11 +224,6 @@ class SourceHelperMsSqlTrans(SourceHelper):
         for row in rows:
             ticket = SourceTicket()
             ticket.init_from_view_transaction(row)
-            if row['axDataAreaId'] == 'nkz':
-                if ticket.inn == '' and ticket.kpp == '' and ticket.date_trip < dt.datetime(2021, 4, 15):
-                    # костыль для сверки старых транзакций по Нкз
-                    ticket.inn = '7819027463'
-                    ticket.kpp = '425345001'
             ticket.company_id = next(x.id for x in companies if x.inn == ticket.inn and x.kpp == ticket.kpp)
             answer.add(ticket)
         logging.debug(f"End MSSQL_TRANS::get_tickets_on_date {self.settings.id}. Tickets - {len(answer)}")
@@ -238,7 +231,7 @@ class SourceHelperMsSqlTrans(SourceHelper):
 
 
 class SourceHelperOracleASUOP(SourceHelper):
-    """АСУОП Оракл"""
+    """ASUOP Oracle"""
 
     def __init__(self, settings: SourceSettings):
         port_str = ''
@@ -254,7 +247,7 @@ class SourceHelperOracleASUOP(SourceHelper):
         if date_from is None:
             date_from = datetime.datetime.now() - datetime.timedelta(hours=1)
         date_to = date_from + datetime.timedelta(hours=5)
-        now = datetime.datetime.now() - datetime.timedelta(seconds=8)  # небольшой гэп, чтобы погасить зависания оракл
+        now = datetime.datetime.now() - datetime.timedelta(seconds=8)  # small gap, for oracle glitches
         if date_to > now:
             date_to = now
         return await self._get_tickets_on_date_with_query(date_from, date_to, companies,
@@ -317,7 +310,7 @@ def construct(asuop_settings: SourceSettings) -> SourceHelper:
         return SourceHelperOracleASUOP(asuop_settings)
     if asuop_settings.type == SourceType.AxValidatorTrans:
         return SourceHelperMsSqlAxValTrans(asuop_settings)
-    raise Exception(f"Обработчик для типа источника {asuop_settings.type} не реализован")
+    raise Exception(f"Handler for source type {asuop_settings.type} doesn't exists")
 
 
 async def sources_cache_tickets(utc_date_from: dt.datetime, utc_date_to: dt.datetime, companies=None) -> set:
@@ -326,8 +319,8 @@ async def sources_cache_tickets(utc_date_from: dt.datetime, utc_date_to: dt.date
         companies = []
     webax = WebaxHelper()
     tickets = set()
-    funcs = []  # TODO тут бы нужно поставить таймауты и посмотреть в сторону asyncio.wait и отменяемых задач
-    # иначе зависание одного источника приведёт к невозможности сверки по остальным
+    funcs = []
+    # otherwise, the freezing of one source will lead to the impossibility of reconciliation for the rest
     asuop_settings_list = await webax.get_sources_settings()
     for asuop_settings in asuop_settings_list:
         asoup_helper = construct(asuop_settings)

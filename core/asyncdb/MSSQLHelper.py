@@ -40,7 +40,7 @@ class MSSql:
         if has_result:
             rows = await self.cursor.fetchall()
             for row in rows:
-                record_dict = {}  # каждой записи сопоставляем словарь, типа {Имя колонки : значение}
+                record_dict = {}
                 for i in range(len(self.cursor.description)):
                     record_dict[self.cursor.description[i][0]] = strip(row[i])
                 answer.append(record_dict)
